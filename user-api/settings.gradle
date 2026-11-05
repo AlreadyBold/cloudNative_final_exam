@@ -1,0 +1,2 @@
+// Gradle 프로젝트 이름 (빌드 결과물과 로그에 표시된다)
+rootProject.name = 'alyak-user-api'

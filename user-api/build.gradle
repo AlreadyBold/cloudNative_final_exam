@@ -1,0 +1,55 @@
+// =====================================================================
+// alyak-user-api 빌드 설정 (Gradle)
+//  - Spring Boot 3.5.6 / Java 17
+//  - 이미지 빌드 시 Dockerfile.user-api 의 1단계(gradle 이미지)에서 bootJar 로 실행 jar 를 만든다.
+// =====================================================================
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.6'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.alyak'
+version = '1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // REST API (내장 톰캣 포함)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // JPA + Hibernate : 회원(users) 테이블 조회/저장
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // 요청 값 검증 (@NotBlank, @Email, @Size ...)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // Redis 접속 (Lettuce 클라이언트) : 세션 저장 + 간편인증 대기 정보 저장
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    // ★ 세션 공유의 핵심 : HttpSession 을 톰캣 메모리 대신 Redis 에 저장한다
+    implementation 'org.springframework.session:spring-session-data-redis'
+    // 비밀번호 BCrypt 해시만 필요하므로 Spring Security 전체가 아니라 crypto 모듈만 가져온다
+    implementation 'org.springframework.security:spring-security-crypto'
+    // CODEF 공식 라이브러리 (간편인증 + 심평원 "내가 먹는 약 한눈에" 조회)
+    implementation 'io.codef.api:easycodef-java:1.0.6'
+
+    // getter, 생성자 등 반복 코드를 줄여 주는 Lombok (컴파일 때만 사용)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // MySQL JDBC 드라이버 (실행 시에만 필요)
+    runtimeOnly 'com.mysql:mysql-connector-j'
+}
+
+// 실행용 jar(bootJar) 하나만 만든다 (-plain.jar 생성 끔)
+tasks.named('jar') {
+    enabled = false
+}
+
+// 이미지 안에서 만들 jar 이름을 고정해서 Dockerfile 의 COPY 경로를 단순하게 한다
+tasks.named('bootJar') {
+    archiveFileName = 'alyak-user-api.jar'
+}

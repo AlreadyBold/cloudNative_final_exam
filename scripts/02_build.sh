@@ -16,5 +16,9 @@ cd "$(dirname "$0")/.."   # scripts/ 의 상위 = 저장소 최상위 폴더로 
 #  db  : 빌드 컨텍스트 (COPY 할 파일들이 있는 폴더)
 docker build -f db/Dockerfile.mysql -t junheong/alyak-mysql:1.0 db
 
+# [2] 회원 서버 이미지 : Spring Boot (멀티 스테이지 - gradle 로 jar 빌드 → JRE 이미지에 jar 만 복사)
+#  VM 에 Java/Gradle 을 설치할 필요 없이 이미지 빌드 과정에서 컴파일까지 끝난다
+docker build -f user-api/Dockerfile.user-api -t junheong/alyak-user-api:1.0 user-api
+
 # 빌드 중간 캐시 정리 (VM 디스크 용량이 작아서 매번 비운다. 이미지와 컨테이너는 지워지지 않음)
 docker builder prune -f

@@ -22,3 +22,9 @@ docker run -d --name alyak-mysql --hostname alyak-mysql --network alyak-net --re
 #  호스트 포트를 열지 않는다. 같은 네트워크의 서버들만 alyak-redis:6379 로 접속한다.
 docker run -d --name alyak-redis --hostname alyak-redis --network alyak-net --restart unless-stopped redis:8.10.3
 
+# [3] 회원 서버 2대 : 같은 이미지로 컨테이너 2개 (프록시가 번갈아 요청을 보낸다)
+#  호스트 포트를 열지 않는다. alyak-proxy 만 alyak-user-api-1:8080, alyak-user-api-2:8080 으로 접속한다.
+#  --hostname 을 다르게 줘서 응답의 served_by / X-Served-By 로 어느 컨테이너가 처리했는지 구분한다.
+#  CODEF 키를 쓰려면 --env-file ./codef.env 를 추가한다 (없으면 모의(MOCK) 모드로 동작)
+docker run -d --name alyak-user-api-1 --hostname alyak-user-api-1 --network alyak-net --restart unless-stopped junheong/alyak-user-api:1.0
+docker run -d --name alyak-user-api-2 --hostname alyak-user-api-2 --network alyak-net --restart unless-stopped junheong/alyak-user-api:1.0

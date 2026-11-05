@@ -1,0 +1,49 @@
+# =====================================================================
+# alyak-user-api 이미지 : Spring Boot 회원 서버 (멀티 스테이지 빌드)
+#
+# 빌드 : (저장소 최상위에서) docker build -f user-api/Dockerfile.user-api -t junheong/alyak-user-api:1.0 user-api
+#
+# [멀티 스테이지를 쓰는 이유]
+#  1단계(build)  : JDK + Gradle 이 들어 있는 큰 이미지에서 소스를 컴파일해 실행 jar 를 만든다.
+#  2단계(runtime): 실행에 필요한 JRE 만 있는 작은 이미지에 jar 하나만 복사한다.
+#  → VM 에 Java/Gradle 을 설치하지 않아도 되고, 최종 이미지에는 소스·빌드도구가 남지 않는다.
+# =====================================================================
+
+# ---------------------------------------------------------------------
+# 1단계 : 빌드
+#  --platform=$BUILDPLATFORM : 멀티 아키텍처(amd64/arm64) 빌드 때도 빌드 단계는 "빌드하는 컴퓨터"의
+#  아키텍처로 실행한다. jar 는 어느 CPU 에서나 똑같이 돌아가므로 에뮬레이션 없이 빠르게 한 번만 만든다.
+# ---------------------------------------------------------------------
+FROM --platform=$BUILDPLATFORM gradle:8.14.3-jdk17-noble AS build
+
+# 컨테이너 안의 작업 폴더
+WORKDIR /workspace
+
+# 빌드 설정을 먼저 복사 (소스만 바뀌었을 때 의존성 다운로드 단계를 캐시로 재사용하기 위함)
+COPY build.gradle settings.gradle ./
+# 소스 코드 복사 (바인드 마운트가 아니라 이미지 안에 포함)
+COPY src ./src
+
+# 실행 jar 생성 → build/libs/alyak-user-api.jar
+#  --no-daemon : 컨테이너 빌드에서는 Gradle 데몬을 띄울 필요가 없다
+RUN gradle bootJar --no-daemon
+
+# ---------------------------------------------------------------------
+# 2단계 : 실행
+#  eclipse-temurin JRE (Ubuntu 기반이라 docker exec -it ... bash 로 접속 가능)
+# ---------------------------------------------------------------------
+FROM eclipse-temurin:17-jre-noble
+
+# 컨테이너 시간대를 한국 시간으로 (로그 시각 확인용)
+ENV TZ=Asia/Seoul
+
+WORKDIR /app
+
+# 1단계에서 만든 jar 만 가져온다
+COPY --from=build /workspace/build/libs/alyak-user-api.jar ./alyak-user-api.jar
+
+# 이 서버가 쓰는 포트 (호스트에는 열지 않고 alyak-proxy 만 이 포트로 접속)
+EXPOSE 8080
+
+# 서버 실행. 컨테이너 메모리 한도의 75% 까지 힙으로 쓰도록 지정
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/alyak-user-api.jar"]
