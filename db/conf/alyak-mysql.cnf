@@ -1,0 +1,16 @@
+# =====================================================================
+# 내약통한눈에 MySQL 서버 설정 파일
+#  - Dockerfile.mysql 에서 /etc/mysql/conf.d/ 로 COPY 된다.
+#  - mysql 공식 이미지는 시작할 때 conf.d 안의 *.cnf 를 모두 읽는다.
+# =====================================================================
+[mysqld]
+# 한글(약품명, 닉네임 등)과 이모지까지 저장할 수 있도록 문자셋을 utf8mb4 로 고정
+character-set-server = utf8mb4
+collation-server     = utf8mb4_unicode_ci
+
+# DB 시간대를 한국 시간으로 맞춘다 (가입일, 저장일 등이 KST 로 기록되도록)
+default-time-zone = '+09:00'
+
+[client]
+# 컨테이너 안에서 mysql 클라이언트로 접속할 때도 한글이 깨지지 않게 한다
+default-character-set = utf8mb4

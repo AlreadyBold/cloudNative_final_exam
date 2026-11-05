@@ -1,0 +1,25 @@
+# =====================================================================
+# 내약통한눈에 DB 이미지 (junheong/alyak-mysql:1.0)
+#
+#  - mysql 8.4 (LTS) 공식 이미지를 기반으로, 설정 파일과 초기화 SQL 을 이미지 안에 COPY 한다.
+#  - 초기화 SQL 을 바인드 마운트로 넣지 않고 이미지에 포함시켰기 때문에
+#    Docker Hub 에서 pull 만 해도 같은 스키마·계정·카탈로그로 바로 설치된다.
+#  - 실제 데이터 파일(/var/lib/mysql)은 docker run 의 -v 옵션으로
+#    호스트 폴더(~/alyak/mysql-data)에 바인드 마운트해서 영속성을 유지한다.
+#  - 오라클 리눅스 기반 이미지라 `docker exec -it alyak-mysql bash` 로 접속할 수 있다.
+# =====================================================================
+FROM mysql:8.4
+
+# 컨테이너 시간대를 한국 시간으로 (로그 시각 확인용)
+ENV TZ=Asia/Seoul
+
+# 서버 설정 (문자셋 utf8mb4, 시간대 +09:00)
+COPY conf/alyak-mysql.cnf /etc/mysql/conf.d/alyak-mysql.cnf
+
+# 최초 1회 실행되는 초기화 스크립트 (파일 이름 순서대로 실행)
+#  01_create_schemas_accounts_tables.sql : 스키마, 서비스별 계정, 테이블
+#  02_insert_pill_catalog.sql.gz         : 약 카탈로그 데이터 (gzip 압축, mysql 이미지가 자동으로 풀어서 실행)
+COPY initdb/ /docker-entrypoint-initdb.d/
+
+# MySQL 기본 포트 (호스트에는 확인용으로 33307 번에 연결한다)
+EXPOSE 3306
