@@ -9,7 +9,7 @@
    "처리한 서버는 여러 개인데 세션 ID·사용자는 모두 같다" = 서버 분산 + 세션 공유가 동시에 된다는 증명.
    ===================================================================== */
 import { request, requestLog, setLogListener } from './api.js';
-import { $, el, showError, withBusy } from './ui.js';
+import { $, el, maskEmail, showError, withBusy } from './ui.js';
 
 /** 확인할 요청 목록 (순서대로 보낸다) */
 const CHECKS = [
@@ -41,7 +41,8 @@ async function runCheck() {
         el('td', {}, path),
         el('td', {}, el('b', {}, data.served_by)),
         el('td', {}, data.session_id_prefix),
-        el('td', {}, `${user.nickname} (${user.username}, #${user.user_id})`)));
+        // 이메일은 화면 녹화·캡처에 남지 않도록 가린다
+        el('td', {}, `${user.nickname} (${maskEmail(user.username)}, #${user.user_id})`)));
     }
   } catch (error) {
     showError(error);

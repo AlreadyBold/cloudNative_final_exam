@@ -115,6 +115,13 @@ export function maskName(name) {
   return text[0] + '*'.repeat(text.length - 2) + text[text.length - 1];
 }
 
+/** 이메일 : demo@alyak.com → d***@alyak.com (아이디 첫 글자만 보인다) */
+export function maskEmail(email) {
+  const [id, domain] = String(email || '').split('@');
+  if (!domain) return '***';
+  return `${id.slice(0, 1)}***@${domain}`;
+}
+
 /** 휴대폰 번호 : 01012345678 → 010-****-5678 (가운데를 가린다) */
 export function maskPhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
