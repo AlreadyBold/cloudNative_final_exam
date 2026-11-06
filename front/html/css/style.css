@@ -80,6 +80,11 @@ input, select {
   color: var(--text);
   background: #fff;
 }
+/* 라벨 + 입력칸 여러 개 (주민등록번호 앞·뒤) */
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field-label { font-size: 0.9rem; color: var(--muted); }
+.rrn { display: flex; align-items: center; gap: 6px; }
+.rrn input { flex: 1; min-width: 0; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
 .row input { flex: 1; min-width: 160px; }
 .row.between { justify-content: space-between; }

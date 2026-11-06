@@ -35,16 +35,34 @@ export function initImporter() {
   $('import-complete-btn').addEventListener('click', (event) => withBusy(event.currentTarget, complete));
   $('import-restart-btn').addEventListener('click', () => resetToForm());
   $('import-save-btn').addEventListener('click', (event) => withBusy(event.currentTarget, saveSelected));
+
+  const form = $('import-form');
+  // 주민등록번호 : 숫자만 입력되게 하고, 앞 6자리를 다 쓰면 뒷자리 칸으로 자동 이동
+  ['identity_front', 'identity_back'].forEach((name) => {
+    form.elements[name].addEventListener('input', (event) => {
+      event.target.value = event.target.value.replace(/\D/g, '');
+      if (name === 'identity_front' && event.target.value.length === 6) {
+        form.elements.identity_back.focus();
+      }
+    });
+  });
 }
 
 /** 1단계 : 간편인증 요청 */
 async function start(form) {
   const values = formValues(form);
+  // 서버로 보낼 값 : 주민등록번호는 앞·뒤를 합쳐 "900101-1234567" 형태로
+  const identity = `${values.identity_front}-${values.identity_back}`;
+  const body = {
+    auth_app: values.auth_app, user_name: values.user_name, identity, phone_number: values.phone_number,
+  };
   try {
-    const result = await api.post('/api/user/prescriptions/import', values);
+    const result = await api.post('/api/user/prescriptions/import', body);
     state.importId = result.import_id;
-    state.identity = values.identity;
-    form.elements.identity.value = ''; // 화면에서도 지운다
+    state.identity = identity;
+    // 민감한 입력칸은 바로 비운다 (화면에 남기지 않음)
+    form.elements.identity_front.value = '';
+    form.elements.identity_back.value = '';
 
     $('import-wait-text').textContent = result.source === 'MOCK'
       ? '샘플(MOCK) 모드입니다. 휴대폰 승인 없이 [인증 완료]를 누르면 샘플 처방내역을 불러옵니다.'

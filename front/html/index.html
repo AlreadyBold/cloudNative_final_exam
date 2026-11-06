@@ -100,7 +100,17 @@
           </select>
         </label>
         <label>이름 <input name="user_name" required maxlength="20" autocomplete="off"></label>
-        <label>주민등록번호 <input name="identity" required placeholder="900101-1234567" pattern="\d{6}-?\d{7}" autocomplete="off"></label>
+        <!-- 주민등록번호 : 앞 6자리는 보이고, 뒤 7자리는 비밀번호 입력칸이라 ●로 가려진다 -->
+        <div class="field">
+          <span class="field-label">주민등록번호</span>
+          <div class="rrn">
+            <input name="identity_front" required inputmode="numeric" maxlength="6" pattern="\d{6}"
+                   placeholder="생년월일 6자리" autocomplete="off" aria-label="주민등록번호 앞 6자리">
+            <span aria-hidden="true">-</span>
+            <input name="identity_back" type="password" required inputmode="numeric" maxlength="7" pattern="\d{7}"
+                   placeholder="●●●●●●●" autocomplete="off" aria-label="주민등록번호 뒤 7자리">
+          </div>
+        </div>
         <label>휴대폰 번호 <input name="phone_number" required placeholder="010-1234-5678" autocomplete="off"></label>
         <button type="submit" class="btn primary">인증 요청</button>
       </form>
