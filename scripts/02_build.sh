@@ -23,5 +23,11 @@ docker build -f user-api/Dockerfile.user-api -t junheong/alyak-user-api:1.0 user
 # [3] 약 서버 이미지 : FastAPI (python slim + requirements.txt 설치 + 소스 COPY)
 docker build -f pill-api/Dockerfile.pill-api -t junheong/alyak-pill-api:1.0 pill-api
 
+# [4] 프론트 이미지 : nginx + 순수 HTML/CSS/JS 파일 COPY
+docker build -f front/Dockerfile.front -t junheong/alyak-front:1.0 front
+
+# [5] 역방향 프록시 이미지 : nginx + 경로별 분배 설정 COPY
+docker build -f proxy/Dockerfile.proxy -t junheong/alyak-proxy:1.0 proxy
+
 # 빌드 중간 캐시 정리 (VM 디스크 용량이 작아서 매번 비운다. 이미지와 컨테이너는 지워지지 않음)
 docker builder prune -f

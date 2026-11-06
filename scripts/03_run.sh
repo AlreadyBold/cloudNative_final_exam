@@ -35,3 +35,11 @@ docker run -d --name alyak-user-api-2 --hostname alyak-user-api-2 --network alya
 #  로그인은 직접 하지 않고, user-api 가 Redis 에 저장한 세션을 읽는다.
 #  --env-file env/pill-api.env : DB 비밀번호
 docker run -d --name alyak-pill-api --hostname alyak-pill-api --network alyak-net --restart unless-stopped --env-file env/pill-api.env junheong/alyak-pill-api:1.0
+
+# [5] 프론트 : 정적 파일만 내려 주는 nginx. 호스트 포트를 열지 않고 프록시를 거쳐서만 접속한다.
+docker run -d --name alyak-front --hostname alyak-front --network alyak-net --restart unless-stopped junheong/alyak-front:1.0
+
+# [6] 역방향 프록시 : 브라우저가 접속하는 유일한 입구
+#  -p 8080:80 : 호스트 8080 → 컨테이너 80 (80·81·443 번은 수업 실습 프록시가 사용 중)
+#  nginx 는 시작할 때 컨테이너 이름을 IP 로 바꾸므로, 다른 컨테이너를 모두 띄운 뒤 마지막에 실행한다.
+docker run -d --name alyak-proxy --hostname alyak-proxy --network alyak-net --restart unless-stopped -p 8080:80 junheong/alyak-proxy:1.0

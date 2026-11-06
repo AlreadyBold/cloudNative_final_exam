@@ -1,0 +1,17 @@
+# =====================================================================
+# alyak-proxy 이미지 : 역방향 프록시 (nginx)
+#
+# 빌드 : (저장소 최상위에서) docker build -f proxy/Dockerfile.proxy -t junheong/alyak-proxy:1.0 proxy
+# =====================================================================
+
+# nginx 공식 이미지 (버전 고정, Debian 기반이라 docker exec -it alyak-proxy bash 로 접속 가능)
+FROM nginx:1.31.8
+
+ENV TZ=Asia/Seoul
+
+# 기본 설정 파일을 지우고 이 프로젝트의 프록시 설정으로 바꾼다 (바인드 마운트가 아니라 이미지에 포함)
+RUN rm /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/alyak-proxy.conf
+
+# 컨테이너 안 포트 (호스트에는 docker run -p 8080:80 으로 연결)
+EXPOSE 80
