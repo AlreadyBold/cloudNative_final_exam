@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<!--
+  내약통한눈에 프론트 (alyak-front)
+  - 빌드 도구 없는 순수 HTML / CSS / JavaScript (ES 모듈)
+  - 화면은 이 파일 하나이고, 탭을 누르면 해당 <section> 만 보여 준다 (js/main.js)
+  - 모든 API 는 같은 주소의 /api/user/** (Spring Boot 2대), /api/pill/** (FastAPI) 로 보내고,
+    alyak-proxy 가 알맞은 서버로 나눠 준다. 로그인 상태는 SESSION 쿠키 하나로 세 서버가 공유한다.
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>내약통한눈에</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- ===== 상단 바 : 서비스 이름 + 로그인 사용자 + 로그아웃 ===== -->
+  <header class="topbar">
+    <h1 class="brand">💊 내약통한눈에</h1>
+    <div class="who" id="who" hidden>
+      <span id="who-name"></span>
+      <button type="button" class="btn small ghost" id="logout-btn">로그아웃</button>
+    </div>
+  </header>
+
+  <!-- ===== 알림 메시지 (성공/실패를 잠깐 보여 줌, js/ui.js 의 toast) ===== -->
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- ===== 로그인 / 회원가입 화면 (로그인 전에만 보임) ===== -->
+  <main id="auth-view" class="container" hidden>
+    <section class="card auth-card">
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-auth="login">로그인</button>
+        <button type="button" class="auth-tab" data-auth="signup">회원가입</button>
+      </div>
+
+      <!-- 로그인 폼 : POST /api/user/login -->
+      <form id="login-form" class="form">
+        <label>이메일 <input name="email" type="email" required autocomplete="username"></label>
+        <label>비밀번호 <input name="password" type="password" required autocomplete="current-password"></label>
+        <button type="submit" class="btn primary">로그인</button>
+      </form>
+
+      <!-- 회원가입 폼 : POST /api/user/signup -->
+      <form id="signup-form" class="form" hidden>
+        <label>이메일 <input name="email" type="email" required maxlength="100" autocomplete="username"></label>
+        <label>비밀번호 (8~64자) <input name="password" type="password" required minlength="8" maxlength="64" autocomplete="new-password"></label>
+        <label>닉네임 (20자 이하) <input name="nickname" required maxlength="20"></label>
+        <button type="submit" class="btn primary">가입하기</button>
+      </form>
+    </section>
+  </main>
+
+  <!-- ===== 로그인 후 화면 ===== -->
+  <main id="app-view" class="container" hidden>
+
+    <!-- 탭 메뉴 : data-tab 값이 아래 <section id="tab-..."> 와 짝 -->
+    <nav class="tabs" id="tabs">
+      <button type="button" class="tab active" data-tab="search">약 검색</button>
+      <button type="button" class="tab" data-tab="pillbox">내 약통</button>
+      <button type="button" class="tab" data-tab="import">처방내역 불러오기</button>
+      <button type="button" class="tab" data-tab="saved">저장한 처방</button>
+      <button type="button" class="tab" data-tab="mypage">마이페이지</button>
+      <button type="button" class="tab" data-tab="session">세션 확인</button>
+    </nav>
+
+    <!-- [1] 약 검색 : GET /api/pill/catalog/search -->
+    <section class="card tab-panel" id="tab-search">
+      <h2>약 검색</h2>
+      <p class="hint">전문의약품·일반의약품 이름으로 찾습니다. 띄어 쓰면 모든 단어가 들어간 약을 찾아요. (예: 타이레놀 500)</p>
+      <form id="search-form" class="row">
+        <input name="q" placeholder="약 이름" required maxlength="100">
+        <button type="submit" class="btn primary">검색</button>
+      </form>
+      <ul class="list" id="search-results"></ul>
+      <button type="button" class="btn ghost" id="search-more" hidden>더 보기</button>
+    </section>
+
+    <!-- [2] 내 약통 : /api/pill/pillbox -->
+    <section class="card tab-panel" id="tab-pillbox" hidden>
+      <h2>내 약통</h2>
+      <p class="hint">지금 먹고 있는 약을 모아 둡니다. 약 검색이나 처방내역에서 담을 수 있어요.</p>
+      <ul class="list" id="pillbox-list"></ul>
+    </section>
+
+    <!-- [3] 처방내역 불러오기 : user-api 로 간편인증 → 결과를 pill-api 에 저장 -->
+    <section class="card tab-panel" id="tab-import" hidden>
+      <h2>처방내역 불러오기</h2>
+      <p class="hint">간편인증으로 심평원 "내가 먹는 약 한눈에"의 최근 1년 조제 내역을 불러옵니다.
+        주민등록번호는 서버에 저장하지 않습니다.</p>
+
+      <!-- 1단계 : 간편인증 요청 -->
+      <form id="import-form" class="form">
+        <label>간편인증 앱
+          <select name="auth_app">
+            <option value="KAKAO">카카오톡</option>
+            <option value="NAVER">네이버</option>
+            <option value="TOSS">토스</option>
+          </select>
+        </label>
+        <label>이름 <input name="user_name" required maxlength="20"></label>
+        <label>주민등록번호 <input name="identity" required placeholder="900101-1234567" pattern="\d{6}-?\d{7}" autocomplete="off"></label>
+        <label>휴대폰 번호 <input name="phone_number" required placeholder="010-1234-5678"></label>
+        <button type="submit" class="btn primary">인증 요청</button>
+      </form>
+
+      <!-- 2단계 : 휴대폰에서 승인 후 완료 (1단계 성공 시 보임) -->
+      <div id="import-wait" class="wait" hidden>
+        <p id="import-wait-text"></p>
+        <p class="countdown">남은 시간 <strong id="import-countdown">-</strong>초</p>
+        <div class="row">
+          <button type="button" class="btn primary" id="import-complete-btn">인증 완료</button>
+          <button type="button" class="btn ghost" id="import-restart-btn">처음부터 다시</button>
+        </div>
+      </div>
+
+      <!-- 3단계 : 불러온 결과 (체크한 처방만 저장) -->
+      <div id="import-result" hidden>
+        <div class="row between">
+          <h3>불러온 처방 <span class="badge" id="import-source"></span></h3>
+          <button type="button" class="btn primary" id="import-save-btn">선택한 처방 저장</button>
+        </div>
+        <ul class="list" id="import-list"></ul>
+      </div>
+    </section>
+
+    <!-- [4] 저장한 처방 : GET/DELETE /api/pill/prescriptions -->
+    <section class="card tab-panel" id="tab-saved" hidden>
+      <h2>저장한 처방</h2>
+      <ul class="list" id="saved-list"></ul>
+    </section>
+
+    <!-- [5] 마이페이지 : /api/user/me -->
+    <section class="card tab-panel" id="tab-mypage" hidden>
+      <h2>마이페이지</h2>
+      <dl class="info" id="my-info"></dl>
+
+      <form id="nickname-form" class="row">
+        <input name="nickname" placeholder="새 닉네임" required maxlength="20">
+        <button type="submit" class="btn">닉네임 변경</button>
+      </form>
+
+      <form id="password-form" class="form">
+        <h3>비밀번호 변경</h3>
+        <label>현재 비밀번호 <input name="current_password" type="password" required autocomplete="current-password"></label>
+        <label>새 비밀번호 (8~64자) <input name="new_password" type="password" required minlength="8" maxlength="64" autocomplete="new-password"></label>
+        <button type="submit" class="btn">비밀번호 변경</button>
+      </form>
+
+      <form id="withdraw-form" class="form danger-zone">
+        <h3>회원 탈퇴</h3>
+        <p class="hint">내 약통·저장한 처방·회원 정보가 모두 삭제되고 되돌릴 수 없습니다.</p>
+        <label>비밀번호 확인 <input name="password" type="password" required autocomplete="current-password"></label>
+        <button type="submit" class="btn danger">탈퇴하기</button>
+      </form>
+    </section>
+
+    <!-- [6] 세션 확인 : 같은 세션이 서로 다른 서버에서 공유되는지 확인하는 화면 -->
+    <section class="card tab-panel" id="tab-session" hidden>
+      <h2>세션 확인</h2>
+      <p class="hint">user-api(Spring Boot)를 여러 번, pill-api(FastAPI)를 한 번 호출합니다.
+        프록시가 user-api 2대에 번갈아 보내므로 <b>처리한 서버</b>는 달라도 <b>세션 ID와 사용자</b>는 같아야 합니다.</p>
+      <button type="button" class="btn primary" id="session-check-btn">세션 공유 확인</button>
+      <table class="table" id="session-table" hidden>
+        <thead>
+          <tr><th>#</th><th>요청</th><th>처리한 서버</th><th>세션 ID(앞 8자리)</th><th>로그인 사용자</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p id="session-verdict" class="verdict"></p>
+
+      <h3>최근 API 요청 기록</h3>
+      <p class="hint">이 화면에서 보낸 모든 API 요청의 응답 헤더 X-Served-By 를 기록합니다.</p>
+      <ul class="log" id="request-log"></ul>
+    </section>
+  </main>
+
+  <!-- 화면의 시작점. type="module" 이라 import/export 로 파일을 나눠 쓸 수 있다 -->
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

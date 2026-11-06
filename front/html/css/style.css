@@ -1,0 +1,190 @@
+/* =====================================================================
+   내약통한눈에 화면 스타일
+   - 색은 :root 변수로 한곳에서 관리한다
+   - 휴대폰 화면(폭 600px 이하)에서도 쓸 수 있게 한 줄 배치를 세로로 바꾼다
+   ===================================================================== */
+:root {
+  --bg: #f4f6f8;          /* 페이지 배경 */
+  --card: #ffffff;        /* 카드 배경 */
+  --text: #1f2933;        /* 기본 글자 */
+  --muted: #6b7785;       /* 보조 글자 */
+  --line: #dde3ea;        /* 테두리 */
+  --primary: #2f6fde;     /* 주요 버튼 */
+  --primary-dark: #2458b3;
+  --danger: #d64545;      /* 삭제·경고 */
+  --ok: #1f9d55;          /* 성공 */
+  --warn-bg: #fff4e5;     /* 주의 배경 */
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ----- 상단 바 ----- */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.brand { font-size: 1.2rem; margin: 0; }
+.who { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+
+/* ----- 본문 영역 ----- */
+.container { max-width: 960px; margin: 20px auto; padding: 0 16px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+h2 { margin-top: 0; }
+h3 { margin: 16px 0 8px; font-size: 1rem; }
+.hint { color: var(--muted); font-size: 0.9rem; margin-top: 0; }
+
+/* ----- 탭 ----- */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tab, .auth-tab {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+.tab.active, .auth-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.auth-card { max-width: 420px; margin: 40px auto; }
+.auth-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+
+/* ----- 폼 ----- */
+.form { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; color: var(--muted); }
+input, select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: #fff;
+}
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.row input { flex: 1; min-width: 160px; }
+.row.between { justify-content: space-between; }
+
+/* ----- 버튼 ----- */
+.btn {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: var(--primary-dark); }
+.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn.ghost { background: transparent; }
+.btn.small { padding: 4px 10px; font-size: 0.85rem; }
+
+/* ----- 목록 (검색 결과, 약통, 처방) ----- */
+.list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.item .thumb {
+  width: 72px;
+  height: 40px;
+  object-fit: contain;
+  background: #fafbfc;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.item .thumb.empty { display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+.item .body { flex: 1; min-width: 0; }
+.item .title { font-weight: 600; word-break: break-all; }
+.item .meta { color: var(--muted); font-size: 0.85rem; }
+.item .actions { display: flex; flex-direction: column; gap: 6px; }
+.detail { margin-top: 8px; font-size: 0.85rem; background: #fafbfc; border-radius: 8px; padding: 8px 10px; }
+.empty-text { color: var(--muted); text-align: center; padding: 20px 0; }
+
+/* 처방 1건 묶음 */
+.rx { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.rx-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rx-drugs { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.rx-drugs .item { padding: 8px; }
+
+/* ----- 배지 ----- */
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: var(--muted);
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.badge.otc { background: #e7f6ee; color: var(--ok); }      /* 일반의약품 */
+.badge.etc { background: #e8effc; color: var(--primary); }  /* 전문의약품 */
+.badge.warn { background: var(--warn-bg); color: #b25e09; } /* 판매 중지, 샘플 데이터 등 */
+
+/* ----- 간편인증 대기 ----- */
+.wait { background: var(--warn-bg); border-radius: var(--radius); padding: 12px 16px; margin: 12px 0; }
+.countdown { margin: 4px 0; }
+
+/* ----- 마이페이지 ----- */
+.info { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; }
+.info dt { color: var(--muted); }
+.info dd { margin: 0; }
+.danger-zone { border-top: 1px solid var(--line); padding-top: 12px; }
+
+/* ----- 세션 확인 표 ----- */
+.table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }
+.table th, .table td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; }
+.table th { color: var(--muted); font-weight: 500; }
+.verdict { font-weight: 600; }
+.verdict.ok { color: var(--ok); }
+.verdict.fail { color: var(--danger); }
+.log { list-style: none; padding: 0; font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem; max-height: 240px; overflow: auto; }
+.log li { border-bottom: 1px dashed var(--line); padding: 3px 0; }
+
+/* ----- 알림 메시지 ----- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: #1f2933;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  max-width: 90vw;
+  z-index: 20;
+}
+.toast.error { background: var(--danger); }
+
+/* ----- 휴대폰 화면 ----- */
+@media (max-width: 600px) {
+  .item { flex-wrap: wrap; }
+  .item .actions { flex-direction: row; width: 100%; }
+  .info { grid-template-columns: 1fr; }
+}
