@@ -30,10 +30,7 @@
   <!-- ===== 로그인 / 회원가입 화면 (로그인 전에만 보임) ===== -->
   <main id="auth-view" class="container" hidden>
     <section class="card auth-card">
-      <div class="auth-tabs">
-        <button type="button" class="auth-tab active" data-auth="login">로그인</button>
-        <button type="button" class="auth-tab" data-auth="signup">회원가입</button>
-      </div>
+      <h2>로그인</h2>
 
       <!-- 로그인 폼 : POST /api/user/login -->
       <form id="login-form" class="form">
@@ -42,15 +39,30 @@
         <button type="submit" class="btn primary">로그인</button>
       </form>
 
-      <!-- 회원가입 폼 : POST /api/user/signup -->
-      <form id="signup-form" class="form" hidden>
-        <label>이메일 <input name="email" type="email" required maxlength="100" autocomplete="username"></label>
-        <label>비밀번호 (8~64자) <input name="password" type="password" required minlength="8" maxlength="64" autocomplete="new-password"></label>
-        <label>닉네임 (20자 이하) <input name="nickname" required maxlength="20"></label>
-        <button type="submit" class="btn primary">가입하기</button>
-      </form>
+      <!-- 회원가입은 별도 화면이 아니라 이 버튼으로 모달 창을 연다 -->
+      <p class="auth-switch">
+        아직 계정이 없나요?
+        <button type="button" class="btn link" id="signup-open">회원가입하기</button>
+      </p>
     </section>
   </main>
+
+  <!-- ===== 회원가입 모달 : POST /api/user/signup =====
+       <dialog> 는 브라우저 기본 모달 요소. showModal() 로 열면 뒤 화면을 누를 수 없고 Esc 로 닫힌다 -->
+  <dialog id="signup-dialog" class="modal" aria-labelledby="signup-title">
+    <form id="signup-form" class="form">
+      <div class="modal-head">
+        <h2 id="signup-title">회원가입</h2>
+        <button type="button" class="btn ghost small" id="signup-close" aria-label="닫기">✕</button>
+      </div>
+      <label>이메일 <input name="email" type="email" required maxlength="100" autocomplete="username"></label>
+      <label>비밀번호 (8~64자) <input name="password" type="password" required minlength="8" maxlength="64" autocomplete="new-password"></label>
+      <label>닉네임 (20자 이하) <input name="nickname" required maxlength="20"></label>
+      <!-- 가입 실패 메시지 : 모달은 화면 맨 위 층에 떠서 하단 알림(toast)이 가려지므로 모달 안에 보여 준다 -->
+      <p class="form-error" id="signup-error" role="alert" hidden></p>
+      <button type="submit" class="btn primary">가입하기</button>
+    </form>
+  </dialog>
 
   <!-- ===== 로그인 후 화면 ===== -->
   <main id="app-view" class="container" hidden>

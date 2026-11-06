@@ -62,7 +62,7 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 
 /* ----- 탭 ----- */
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.tab, .auth-tab {
+.tab {
   border: 1px solid var(--line);
   background: var(--card);
   border-radius: 999px;
@@ -70,9 +70,23 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
   cursor: pointer;
   font: inherit;
 }
-.tab.active, .auth-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .auth-card { max-width: 420px; margin: 40px auto; }
-.auth-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+.auth-switch { text-align: center; color: var(--muted); margin: 8px 0 0; }
+
+/* ----- 모달 (회원가입) : <dialog> 기본 스타일을 카드 모양으로 ----- */
+.modal {
+  width: min(420px, calc(100vw - 32px));
+  border: none;
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+.modal::backdrop { background: rgba(15, 23, 42, 0.45); } /* 모달 뒤 화면을 어둡게 */
+.modal .form { margin: 0; }
+.modal-head { display: flex; justify-content: space-between; align-items: center; }
+.modal-head h2 { margin: 0; }
+.form-error { color: var(--danger); font-size: 0.9rem; margin: 0; }
 
 /* ----- 폼 ----- */
 .form { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
@@ -109,6 +123,7 @@ input, select {
 .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn.ghost { background: transparent; }
 .btn.small { padding: 4px 10px; font-size: 0.85rem; }
+.btn.link { border: none; background: none; color: var(--primary); padding: 0 4px; text-decoration: underline; }
 
 /* ----- 목록 (검색 결과, 약통, 처방) ----- */
 .list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }

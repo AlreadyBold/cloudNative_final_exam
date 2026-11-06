@@ -4,6 +4,7 @@
    - 로그인은 user-api(Spring Boot)만 한다. 성공하면 서버가 Redis 에 세션을 만들고
      SESSION 쿠키(HttpOnly)를 내려 준다. 이 쿠키는 자바스크립트로 읽을 수 없고, 브라우저가 알아서 보낸다.
    - 화면에 필요한 로그인 사용자 정보(닉네임 등)는 로그인 응답과 /api/user/me 로 받는다.
+   - 회원가입은 로그인 화면 아래 [회원가입하기] 버튼으로 여는 모달 창(<dialog>)에서 한다.
    ===================================================================== */
 import { api } from './api.js';
 import { $, formValues, showError, toast, withBusy } from './ui.js';
@@ -31,13 +32,22 @@ export async function restoreSession() {
  * @param {function} onLoggedIn 로그인 성공 후 부를 함수 (main.js 가 화면 전환)
  */
 export function initAuth(onLoggedIn) {
-  // [로그인] / [회원가입] 탭 전환
-  document.querySelectorAll('.auth-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.auth-tab').forEach((t) => t.classList.toggle('active', t === tab));
-      $('login-form').hidden = tab.dataset.auth !== 'login';
-      $('signup-form').hidden = tab.dataset.auth !== 'signup';
-    });
+  const dialog = $('signup-dialog');
+
+  // [회원가입하기] → 모달 열기 (showModal : 뒤 화면을 막고 Esc 로 닫을 수 있다)
+  $('signup-open').addEventListener('click', () => {
+    dialog.showModal();
+    $('signup-form').elements.email.focus();
+  });
+  // [✕] 또는 모달 바깥(어두운 배경)을 누르면 닫기
+  $('signup-close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  // 어떤 방법으로 닫히든 입력한 비밀번호 등이 남지 않도록 폼과 오류 메시지를 비운다
+  dialog.addEventListener('close', () => {
+    $('signup-form').reset();
+    $('signup-error').hidden = true;
   });
 
   // 로그인 : POST /api/user/login
@@ -55,7 +65,7 @@ export function initAuth(onLoggedIn) {
     });
   });
 
-  // 회원가입 : POST /api/user/signup → 성공하면 로그인 탭으로 이동하고 이메일을 채워 준다
+  // 회원가입 : POST /api/user/signup → 성공하면 모달을 닫고, 로그인 폼에 이메일을 채워 비밀번호 칸으로 이동
   $('signup-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -63,12 +73,14 @@ export function initAuth(onLoggedIn) {
       try {
         const values = formValues(form);
         await api.post('/api/user/signup', values);
-        form.reset();
+        dialog.close();
         toast('가입했습니다. 로그인해 주세요.');
-        document.querySelector('.auth-tab[data-auth="login"]').click();
         $('login-form').elements.email.value = values.email;
+        $('login-form').elements.password.focus();
       } catch (error) {
-        showError(error);
+        // 실패 메시지는 모달 안에 (예: "이미 가입된 이메일입니다.")
+        $('signup-error').textContent = error.message;
+        $('signup-error').hidden = false;
       }
     });
   });
