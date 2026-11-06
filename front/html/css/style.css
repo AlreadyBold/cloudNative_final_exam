@@ -19,6 +19,11 @@
 
 * { box-sizing: border-box; }
 
+/* hidden 속성이 붙은 요소는 항상 숨긴다.
+   .form { display: flex } 처럼 display 를 정한 스타일이 브라우저 기본 [hidden] 규칙보다 우선해서
+   숨겨야 할 요소가 보이는 문제를 막는다. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
