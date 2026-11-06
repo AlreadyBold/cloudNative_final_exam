@@ -89,10 +89,11 @@ export async function request(method, path, body) {
   return { data: json.data, servedBy };
 }
 
-/** 요청 기록에 한 줄 추가 */
+/** 요청 기록에 한 줄 추가. 주소 속 간편인증 ID(import_id)는 화면에 남기지 않도록 가린다 */
 function addLog(method, path, status, servedBy) {
   const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-  requestLog.unshift({ time, method, path, status, servedBy });
+  const safePath = path.replace(/(\/prescriptions\/import\/)[^/]+/, '$1…');
+  requestLog.unshift({ time, method, path: safePath, status, servedBy });
   if (requestLog.length > LOG_LIMIT) {
     requestLog.pop();
   }
