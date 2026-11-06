@@ -105,6 +105,15 @@ export function saleBadge(status) {
   return el('span', { class: 'badge warn' }, SALE_STATUS_TEXT[status] || status);
 }
 
+/** 휴대폰 번호 입력칸 자동 하이픈 : 01012345678 → 010-1234-5678 */
+export function formatPhoneInput(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 11);
+  if (digits.length < 4) return digits;
+  if (digits.length < 8) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  const middle = digits.length === 10 ? 3 : 4; // 011-123-4567 처럼 가운데가 3자리인 번호
+  return `${digits.slice(0, 3)}-${digits.slice(3, 3 + middle)}-${digits.slice(3 + middle)}`;
+}
+
 /** 목록이 비었을 때 보여 줄 문구 */
 export function emptyItem(text) {
   return el('li', { class: 'empty-text' }, text);

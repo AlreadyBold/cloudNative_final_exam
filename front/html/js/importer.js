@@ -16,7 +16,7 @@
    ===================================================================== */
 import { api } from './api.js';
 import { renderDrug, sourceBadge } from './saved.js';
-import { $, el, formValues, formatDate, showError, toast, withBusy } from './ui.js';
+import { $, el, formValues, formatDate, formatPhoneInput, showError, toast, withBusy } from './ui.js';
 
 /** 진행 중인 불러오기 상태 */
 const state = {
@@ -37,6 +37,10 @@ export function initImporter() {
   $('import-save-btn').addEventListener('click', (event) => withBusy(event.currentTarget, saveSelected));
 
   const form = $('import-form');
+  // 휴대폰 번호 : 입력할 때마다 숫자만 남기고 010-1234-5678 형태로 바꾼다
+  form.elements.phone_number.addEventListener('input', (event) => {
+    event.target.value = formatPhoneInput(event.target.value);
+  });
   // 주민등록번호 : 숫자만 입력되게 하고, 앞 6자리를 다 쓰면 뒷자리 칸으로 자동 이동
   ['identity_front', 'identity_back'].forEach((name) => {
     form.elements[name].addEventListener('input', (event) => {

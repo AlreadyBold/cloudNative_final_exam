@@ -111,7 +111,9 @@
                    placeholder="●●●●●●●" autocomplete="off" aria-label="주민등록번호 뒤 7자리">
           </div>
         </div>
-        <label>휴대폰 번호 <input name="phone_number" required placeholder="010-1234-5678" autocomplete="off"></label>
+        <!-- 휴대폰 번호 : 입력하는 동안 자동으로 010-1234-5678 형태로 바꿔 준다 (js/importer.js) -->
+        <label>휴대폰 번호 <input name="phone_number" type="tel" required inputmode="numeric" maxlength="13"
+                                placeholder="010-1234-5678" autocomplete="off"></label>
         <button type="submit" class="btn primary">인증 요청</button>
       </form>
 
