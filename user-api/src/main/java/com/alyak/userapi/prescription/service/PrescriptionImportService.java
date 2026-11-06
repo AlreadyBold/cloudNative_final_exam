@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -39,7 +40,8 @@ import lombok.RequiredArgsConstructor;
  *
  * <h3>서버 2대 구성과 재현성을 위한 처리</h3>
  * <ul>
- *   <li>대기 정보와 하루 횟수를 서버 메모리 → Redis 로 이동 (user-api 2대 구성 대응)</li>
+ *   <li>대기 정보와 하루 횟수를 서버 메모리가 아니라 Redis 에 둔다 (user-api 2대 구성 대응)</li>
+ *   <li>같은 회원은 동시에 1건만 진행 (ImportLock, 다른 기기 요청은 409)</li>
  *   <li>CODEF 키가 없으면 실제 호출 대신 모의(MOCK) 모드 : 같은 2단계 흐름으로 샘플 데이터를 돌려준다</li>
  * </ul>
  */
@@ -60,6 +62,7 @@ public class PrescriptionImportService {
 	private final PendingImportStore pendingImportStore;
 	private final ImportDailyLimiter dailyLimiter;
 	private final MockPrescriptionProvider mockPrescriptionProvider;
+	private final ImportLock importLock;
 
 	/** 시작 결과 : 완료 API 에 쓸 ID, 남은 시간, 데이터 출처 */
 	public record StartResult(String importId, long expiresInSeconds, PrescriptionDataSource source) {
@@ -71,46 +74,74 @@ public class PrescriptionImportService {
 
 	/**
 	 * 1단계 : 간편인증 요청 보내기.
+	 *
+	 * <p>같은 회원이 다른 기기(다른 세션)에서 이미 진행 중이면 CODEF 를 부르지 않고 바로 409.
+	 * 같은 세션에서 다시 시작하면 이전 요청을 버리고 새로 시작한다 (창을 닫았다가 다시 하는 경우).
 	 */
-	public StartResult start(Long userId, SimpleAuthApp authApp, String userName, String identity,
-		String phoneNumber) {
+	public StartResult start(Long userId, String sessionId, SimpleAuthApp authApp, String userName,
+		String identity, String phoneNumber) {
 		// 입력값 형식 검사는 모의 모드에서도 똑같이 한다 (화면 흐름을 실제와 같게)
 		Map<String, Object> baseParameters = baseParameters(authApp, userName.trim(),
 			PhoneNumbers.normalize(phoneNumber));
 		String importId = RandomTokens.opaqueToken();
 
-		// ----- 모의 모드 : CODEF 를 호출하지 않고 대기 정보만 만든다 -----
-		if (!codefClient.isConfigured()) {
-			pendingImportStore.save(importId,
-				new PendingImport(userId, PrescriptionDataSource.MOCK, Map.of(), Map.of()), TWO_WAY_VALIDITY);
-			return new StartResult(importId, TWO_WAY_VALIDITY.toSeconds(), PrescriptionDataSource.MOCK);
+		acquireLock(userId, sessionId, importId);
+		try {
+			PendingImport pending;
+			if (!codefClient.isConfigured()) {
+				// ----- 모의 모드 : CODEF 를 호출하지 않고 대기 정보만 만든다 -----
+				pending = new PendingImport(userId, sessionId, PrescriptionDataSource.MOCK, Map.of(), Map.of());
+			} else {
+				// ----- 실제 모드 -----
+				dailyLimiter.increaseOrThrow(userId);
+				CodefResponse response = codefClient.request(PRODUCT_URL, withIdentity(baseParameters, identity));
+				// 간편인증은 항상 추가인증을 거친다. 바로 성공/실패가 오면 1차 요청값이 잘못된 것
+				if (!response.requiresTwoWay()) {
+					throw failure(response);
+				}
+				pending = new PendingImport(userId, sessionId, PrescriptionDataSource.CODEF, baseParameters,
+					twoWayInfo(response.data()));
+			}
+			pendingImportStore.save(importId, pending, TWO_WAY_VALIDITY);
+			return new StartResult(importId, TWO_WAY_VALIDITY.toSeconds(), pending.source());
+		} catch (RuntimeException exception) {
+			// 시작 자체가 실패하면 잠금을 바로 풀어서 다시 시도할 수 있게
+			importLock.release(userId, sessionId, importId);
+			throw exception;
 		}
+	}
 
-		// ----- 실제 모드 -----
-		dailyLimiter.increaseOrThrow(userId);
-		CodefResponse response = codefClient.request(PRODUCT_URL, withIdentity(baseParameters, identity));
-		// 간편인증은 항상 추가인증을 거친다. 바로 성공/실패가 오면 1차 요청값이 잘못된 것
-		if (!response.requiresTwoWay()) {
-			throw failure(response);
+	/**
+	 * 잠금 잡기. 다른 세션이 잡고 있으면 남은 시간을 알려 주며 거절하고,
+	 * 같은 세션이 잡고 있으면 이전 대기 정보를 지우고 새 요청으로 바꾼다.
+	 */
+	private void acquireLock(Long userId, String sessionId, String importId) {
+		Optional<ImportLock.Holder> holder = importLock.tryAcquire(userId, sessionId, importId, TWO_WAY_VALIDITY);
+		if (holder.isEmpty()) {
+			return;
 		}
-		pendingImportStore.save(importId,
-			new PendingImport(userId, PrescriptionDataSource.CODEF, baseParameters, twoWayInfo(response.data())),
-			TWO_WAY_VALIDITY);
-		return new StartResult(importId, TWO_WAY_VALIDITY.toSeconds(), PrescriptionDataSource.CODEF);
+		if (!holder.get().sessionId().equals(sessionId)) {
+			throw new BusinessException(ErrorCode.PRESCRIPTION_IMPORT_IN_PROGRESS,
+				ErrorCode.PRESCRIPTION_IMPORT_IN_PROGRESS.getMessage() + " 약 " + holder.get().remainingSeconds()
+					+ "초 후에 다시 시도해 주세요.");
+		}
+		pendingImportStore.delete(holder.get().importId());
+		importLock.overwrite(userId, sessionId, importId, TWO_WAY_VALIDITY);
 	}
 
 	/**
 	 * 2단계 : 사용자가 휴대폰에서 승인한 뒤 결과 받기.
+	 * 시작한 회원 + 시작한 세션(기기)에서만 완료할 수 있다.
 	 */
-	public CompleteResult complete(Long userId, String importId, String identity) {
+	public CompleteResult complete(Long userId, String sessionId, String importId, String identity) {
 		PendingImport pending = pendingImportStore.find(importId)
-			// 남의 importId 도 "없음"과 똑같이 응답 (다른 회원의 대기 건이 있는지 알 수 없게)
-			.filter(found -> found.userId().equals(userId))
+			// 남의 importId, 다른 기기에서 시작한 importId 도 "없음"과 똑같이 응답
+			.filter(found -> found.userId().equals(userId) && sessionId.equals(found.sessionId()))
 			.orElseThrow(() -> new BusinessException(ErrorCode.PRESCRIPTION_IMPORT_EXPIRED));
 
 		// ----- 모의 모드 : 샘플 데이터 반환 -----
 		if (pending.source() == PrescriptionDataSource.MOCK) {
-			pendingImportStore.delete(importId);
+			finish(userId, sessionId, importId);
 			return new CompleteResult(PrescriptionDataSource.MOCK, mockPrescriptionProvider.samples());
 		}
 
@@ -121,18 +152,22 @@ public class PrescriptionImportService {
 		parameters.put("twoWayInfo", pending.twoWayInfo());
 		CodefResponse response = codefClient.requestCertification(PRODUCT_URL, parameters);
 
-		if (response.isSuccess()) {
-			pendingImportStore.delete(importId);
-			return new CompleteResult(PrescriptionDataSource.CODEF, toPrescriptions(response.data()));
-		}
-		// 아직 휴대폰에서 승인 전이면 대기 정보를 남겨 두어 다시 [인증 완료]를 누를 수 있게 한다
+		// 아직 휴대폰에서 승인 전이면 대기 정보와 잠금을 남겨 두어 다시 [인증 완료]를 누를 수 있게 한다
 		if (response.requiresTwoWay()) {
 			throw new BusinessException(ErrorCode.PRESCRIPTION_AUTH_NOT_APPROVED);
 		}
-		if (IDENTITY_MISMATCH_CODES.contains(response.code())) {
-			pendingImportStore.delete(importId);
+		// 그 밖에는 성공이든 실패든 이번 불러오기는 끝 → 대기 정보와 잠금 정리
+		finish(userId, sessionId, importId);
+		if (response.isSuccess()) {
+			return new CompleteResult(PrescriptionDataSource.CODEF, toPrescriptions(response.data()));
 		}
 		throw failure(response);
+	}
+
+	/** 불러오기 1건 종료 : 대기 정보 삭제 + 잠금 해제 */
+	private void finish(Long userId, String sessionId, String importId) {
+		pendingImportStore.delete(importId);
+		importLock.release(userId, sessionId, importId);
 	}
 
 	/** CODEF 1차 요청값 (주민등록번호 제외) */

@@ -33,6 +33,7 @@ public enum ErrorCode {
 	// ----- 처방내역 불러오기 (CODEF 간편인증) -----
 	PHONE_INVALID_NUMBER(HttpStatus.BAD_REQUEST, "휴대폰 번호 형식이 올바르지 않습니다."),
 	PRESCRIPTION_IMPORT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "지금은 처방 내역을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요."),
+	PRESCRIPTION_IMPORT_IN_PROGRESS(HttpStatus.CONFLICT, "다른 기기에서 처방 내역 불러오기가 진행 중입니다."),
 	PRESCRIPTION_IMPORT_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 처방 내역 불러오기 횟수를 초과했습니다."),
 	PRESCRIPTION_IMPORT_EXPIRED(HttpStatus.BAD_REQUEST, "인증 시간이 지났습니다. 처음부터 다시 진행해 주세요."),
 	PRESCRIPTION_AUTH_NOT_APPROVED(HttpStatus.BAD_REQUEST, "간편인증 앱에서 인증을 먼저 완료해 주세요."),

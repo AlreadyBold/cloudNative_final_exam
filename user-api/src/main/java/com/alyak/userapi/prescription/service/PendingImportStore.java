@@ -42,12 +42,13 @@ public class PendingImportStore {
 	 * 대기 중인 불러오기 1건.
 	 *
 	 * @param userId         시작한 회원 번호 (다른 회원이 importId 를 가로채 완료하지 못하게 확인용)
+	 * @param sessionId      시작한 세션 ID (같은 아이디라도 시작한 기기(브라우저)에서만 완료할 수 있게)
 	 * @param source         CODEF(실제) / MOCK(샘플)
 	 * @param baseParameters CODEF 1차 요청값 중 주민등록번호를 뺀 나머지 (이름, 휴대폰 번호 등)
 	 * @param twoWayInfo     CODEF 가 준 추가인증 식별 정보 (jobIndex, threadIndex, jti, twoWayTimestamp)
 	 */
-	public record PendingImport(Long userId, PrescriptionDataSource source, Map<String, Object> baseParameters,
-		Map<String, Object> twoWayInfo) {
+	public record PendingImport(Long userId, String sessionId, PrescriptionDataSource source,
+		Map<String, Object> baseParameters, Map<String, Object> twoWayInfo) {
 	}
 
 	/** 대기 정보 저장 (지정한 시간이 지나면 자동 삭제) */
