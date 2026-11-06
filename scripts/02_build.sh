@@ -20,5 +20,8 @@ docker build -f db/Dockerfile.mysql -t junheong/alyak-mysql:1.0 db
 #  VM 에 Java/Gradle 을 설치할 필요 없이 이미지 빌드 과정에서 컴파일까지 끝난다
 docker build -f user-api/Dockerfile.user-api -t junheong/alyak-user-api:1.0 user-api
 
+# [3] 약 서버 이미지 : FastAPI (python slim + requirements.txt 설치 + 소스 COPY)
+docker build -f pill-api/Dockerfile.pill-api -t junheong/alyak-pill-api:1.0 pill-api
+
 # 빌드 중간 캐시 정리 (VM 디스크 용량이 작아서 매번 비운다. 이미지와 컨테이너는 지워지지 않음)
 docker builder prune -f

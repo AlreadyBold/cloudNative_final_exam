@@ -28,3 +28,8 @@ docker run -d --name alyak-redis --hostname alyak-redis --network alyak-net --re
 #  CODEF 키를 쓰려면 --env-file ./codef.env 를 추가한다 (없으면 모의(MOCK) 모드로 동작)
 docker run -d --name alyak-user-api-1 --hostname alyak-user-api-1 --network alyak-net --restart unless-stopped junheong/alyak-user-api:1.0
 docker run -d --name alyak-user-api-2 --hostname alyak-user-api-2 --network alyak-net --restart unless-stopped junheong/alyak-user-api:1.0
+
+# [4] 약 서버 1대 : FastAPI
+#  호스트 포트를 열지 않는다. alyak-proxy 만 alyak-pill-api:8000 으로 접속한다.
+#  로그인은 직접 하지 않고, user-api 가 Redis 에 저장한 세션을 읽는다.
+docker run -d --name alyak-pill-api --hostname alyak-pill-api --network alyak-net --restart unless-stopped junheong/alyak-pill-api:1.0

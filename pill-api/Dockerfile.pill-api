@@ -1,0 +1,33 @@
+# =====================================================================
+# alyak-pill-api 이미지 : FastAPI 약 서버
+#
+# 빌드 : (저장소 최상위에서) docker build -f pill-api/Dockerfile.pill-api -t junheong/alyak-pill-api:1.0 pill-api
+# =====================================================================
+
+# 파이썬 공식 이미지의 slim 버전 (Debian 기반이라 docker exec -it alyak-pill-api bash 로 접속 가능)
+FROM python:3.12.7-slim-bookworm
+
+# 컨테이너 시간대를 한국 시간으로 (로그 시각 확인용)
+ENV TZ=Asia/Seoul \
+    # .pyc 파일을 만들지 않음 (이미지에 불필요한 파일이 쌓이지 않게)
+    PYTHONDONTWRITEBYTECODE=1 \
+    # 로그를 버퍼에 모으지 않고 바로 출력 (docker logs 로 즉시 보이게)
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# 패키지 목록을 먼저 복사해서 설치 (소스만 바뀌었을 때는 이 단계를 캐시로 재사용해서 빌드가 빠르다)
+COPY requirements.txt .
+#  --no-cache-dir : pip 다운로드 캐시를 이미지에 남기지 않음
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 소스 코드 복사 (바인드 마운트가 아니라 이미지 안에 포함)
+COPY app ./app
+
+# 이 서버가 쓰는 포트 (호스트에는 열지 않고 alyak-proxy 만 이 포트로 접속)
+EXPOSE 8000
+
+# 서버 실행
+#  --host 0.0.0.0     : 컨테이너 밖(같은 네트워크의 프록시)에서 접속할 수 있게
+#  --proxy-headers    : 프록시가 넘겨 준 X-Forwarded-* 헤더를 믿고 원래 요청 정보를 쓴다
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
