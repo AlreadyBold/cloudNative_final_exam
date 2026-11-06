@@ -105,6 +105,28 @@ export function saleBadge(status) {
   return el('span', { class: 'badge warn' }, SALE_STATUS_TEXT[status] || status);
 }
 
+/* ----- 개인정보 가리기 (화면에 보여 줄 때만 사용, 서버로 보내는 값은 그대로) ----- */
+
+/** 이름 : 홍길동 → 홍*동, 홍길 → 홍*, 남궁민수 → 남**수 */
+export function maskName(name) {
+  const text = String(name || '');
+  if (text.length <= 1) return text;
+  if (text.length === 2) return `${text[0]}*`;
+  return text[0] + '*'.repeat(text.length - 2) + text[text.length - 1];
+}
+
+/** 휴대폰 번호 : 01012345678 → 010-****-5678 (가운데를 가린다) */
+export function maskPhone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length < 10) return '***';
+  return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
+}
+
+/** 주민등록번호 : 앞 6자리 + 성별 자리만 보이고 나머지는 가린다 → 900101-1****** */
+export function maskIdentity(front, back) {
+  return `${String(front || '').slice(0, 6)}-${String(back || '').slice(0, 1)}******`;
+}
+
 /** 휴대폰 번호 입력칸 자동 하이픈 : 01012345678 → 010-1234-5678 */
 export function formatPhoneInput(value) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, 11);

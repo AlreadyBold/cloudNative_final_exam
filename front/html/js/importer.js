@@ -11,12 +11,18 @@
     3. [선택한 처방 저장]  POST /api/pill/prescriptions              (pill-api)
        → 이미 저장한 처방은 서버가 건너뛰고 "저장 n건 / 건너뜀 m건"을 알려 준다.
 
-   주민등록번호는 2단계에서 한 번 더 필요하다. 서버에 저장하지 않으려고 화면 메모리(변수)에만 잠깐 두고,
-   끝나면 바로 지운다. (localStorage 등 브라우저 저장소에는 절대 넣지 않는다)
+   [개인정보 보호]
+    - 주민등록번호 뒷자리는 비밀번호 입력칸이라 ●로 가려진다. 휴대폰 번호는 입력 중 자동으로 하이픈이 붙는다.
+    - 인증 요청을 보내면 주민등록번호·휴대폰 번호 입력칸을 바로 비우고,
+      화면에는 홍*동 · 900101-1****** · 010-****-5678 처럼 가린 요약만 보여 준다.
+    - 주민등록번호는 2단계에서 한 번 더 필요하다. 서버에 저장하지 않으려고 화면 메모리(변수)에만 잠깐 두고,
+      끝나면 바로 지운다. (localStorage 등 브라우저 저장소에는 절대 넣지 않는다)
    ===================================================================== */
 import { api } from './api.js';
 import { renderDrug, sourceBadge } from './saved.js';
-import { $, el, formValues, formatDate, formatPhoneInput, showError, toast, withBusy } from './ui.js';
+import {
+  $, el, formValues, formatDate, formatPhoneInput, maskIdentity, maskName, maskPhone, showError, toast, withBusy,
+} from './ui.js';
 
 /** 진행 중인 불러오기 상태 */
 const state = {
@@ -67,10 +73,15 @@ async function start(form) {
     // 민감한 입력칸은 바로 비운다 (화면에 남기지 않음)
     form.elements.identity_front.value = '';
     form.elements.identity_back.value = '';
+    form.elements.phone_number.value = '';
 
-    $('import-wait-text').textContent = result.source === 'MOCK'
-      ? '샘플(MOCK) 모드입니다. 휴대폰 승인 없이 [인증 완료]를 누르면 샘플 처방내역을 불러옵니다.'
-      : '휴대폰의 간편인증 앱에서 [인증]을 누른 뒤, 아래 [인증 완료]를 눌러 주세요.';
+    // 가린 요약만 보여 준다 : 홍*동 · 900101-1****** · 010-****-5678
+    const summary = [maskName(values.user_name), maskIdentity(values.identity_front, values.identity_back),
+      maskPhone(values.phone_number)].join(' · ');
+    $('import-wait-text').textContent = `${summary} 으로 인증을 요청했습니다. `
+      + (result.source === 'MOCK'
+        ? '샘플(MOCK) 모드라 휴대폰 승인 없이 [인증 완료]를 누르면 샘플 처방내역을 불러옵니다.'
+        : '휴대폰의 간편인증 앱에서 [인증]을 누른 뒤, 아래 [인증 완료]를 눌러 주세요.');
     form.hidden = true;
     $('import-result').hidden = true;
     $('import-wait').hidden = false;
