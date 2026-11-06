@@ -5,6 +5,8 @@
 # [입력]
 #  1) catalog.jsonl : 식약처 낱알식별·허가정보를 약 1개 = 1줄(JSON)로 모은 파일 (약 950MB, 46,292건)
 #  2) 심평원 DUR "병용금기 품목리스트" CSV (CP949 인코딩, 약 87만 행)
+#  3) (선택) 심평원 약가마스터 의약품표준코드 CSV (CP949 인코딩)
+#     → "제품코드(개정후)" 를 보험코드로 추가. 보험코드가 바뀐 약도 처방내역의 새 코드로 찾을 수 있게 한다.
 #
 # [출력]
 #  db/initdb/02_insert_pill_catalog.sql.gz
@@ -20,6 +22,7 @@
 #  python3 tools/build_catalog_sql.py \
 #      --catalog ~/alyak-data/raw/catalog.jsonl \
 #      --dur-combination "~/alyak-data/raw/dur/의약품안전사용서비스(DUR)_병용금기 품목리스트 2026.6.csv" \
+#      --standard-code ~/alyak-data/raw/standard-code.csv \
 #      --out db/initdb/02_insert_pill_catalog.sql.gz
 # =====================================================================
 import argparse
@@ -219,10 +222,34 @@ def read_catalog(path):
                 sale_status(item_name, text(permit, "status")),
             ))
             # 보험코드(EDI) : 같은 약에 여러 개일 수 있고 중복이 있을 수 있다
-            for code in dict.fromkeys(str(c).strip() for c in pill.get("edi_codes") or []):
-                if code and len(code) <= 20:
+            for code in pill.get("edi_codes") or []:
+                code = edi_code(code)
+                if code:
                     code_rows.append(("EDI", code, item_seq))
     return catalog_rows, code_rows
+
+
+def edi_code(value):
+    """
+    보험코드 정리 : 9자리 숫자로 맞춘다. 형식이 이상하면 None.
+    엑셀을 거친 원천 파일은 앞자리 0 이 빠진 8자리 코드가 섞여 있어서(예: 73400340) 앞에 0 을 붙인다.
+    """
+    code = str(value or "").strip()
+    if code.isdigit() and len(code) == 8:
+        code = "0" + code
+    return code if code.isdigit() and len(code) == 9 else None
+
+
+def read_standard_codes(path, known_item_seqs):
+    """약가마스터 표준코드 CSV → (EDI, 제품코드(개정후), 품목기준코드) 행. 카탈로그에 있는 약만."""
+    rows = []
+    with open(path, encoding="cp949", newline="") as file:
+        for row in csv.DictReader(file):
+            item_seq = (row.get("품목기준코드") or "").strip()
+            code = edi_code(row.get("제품코드(개정후)"))
+            if item_seq in known_item_seqs and code:
+                rows.append(("EDI", code, item_seq))
+    return rows
 
 
 def read_dur_combination(path):
@@ -251,10 +278,15 @@ def main():
     parser = argparse.ArgumentParser(description="약 카탈로그 jsonl + DUR 병용금기 CSV → MySQL 초기화 SQL(gzip)")
     parser.add_argument("--catalog", required=True, help="catalog.jsonl 경로")
     parser.add_argument("--dur-combination", required=True, help="DUR 병용금기 품목리스트 CSV 경로")
+    parser.add_argument("--standard-code", help="(선택) 약가마스터 의약품표준코드 CSV 경로")
     parser.add_argument("--out", required=True, help="출력 파일 (.sql.gz)")
     args = parser.parse_args()
 
     catalog_rows, code_rows = read_catalog(os.path.expanduser(args.catalog))
+    if args.standard_code:
+        code_rows += read_standard_codes(os.path.expanduser(args.standard_code), {r[0] for r in catalog_rows})
+    # (코드 종류, 코드, 약) 이 같은 행은 하나만 (테이블의 UNIQUE 키와 같은 기준)
+    code_rows = list(dict.fromkeys(code_rows))
     edi_rows, pair_rows = read_dur_combination(os.path.expanduser(args.dur_combination))
 
     # mtime=0 : 같은 입력이면 항상 같은 파일이 나오게 (git 에서 불필요한 변경 방지)
