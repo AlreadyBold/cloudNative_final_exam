@@ -12,8 +12,12 @@ DB_HOST = os.getenv("DB_HOST", "alyak-mysql")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 DB_NAME = os.getenv("DB_NAME", "alyak_pill")
 DB_USERNAME = os.getenv("DB_USERNAME", "alyak_pill_app")
-# 과제 시연용 로컬 DB 비밀번호 (db/initdb/01_create_schemas_accounts_tables.sql 과 같은 값)
-DB_PASSWORD = os.getenv("DB_PASSWORD", "REMOVED")
+# 비밀번호는 코드에 두지 않는다. docker run --env-file env/pill-api.env 로만 받는다.
+# 없으면 서버를 띄우지 않고 바로 알려 준다 (설정 누락을 빨리 발견하기 위해)
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+if not DB_PASSWORD:
+    raise RuntimeError("환경변수 DB_PASSWORD 가 없습니다. "
+                       "scripts/00_env.sh 로 env/pill-api.env 를 만든 뒤 --env-file 로 넘겨 주세요.")
 
 # ----- Redis : user-api(Spring) 와 같은 세션 저장소 -----
 REDIS_HOST = os.getenv("REDIS_HOST", "alyak-redis")

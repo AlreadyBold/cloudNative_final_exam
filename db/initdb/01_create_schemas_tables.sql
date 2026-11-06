@@ -1,9 +1,9 @@
 -- =====================================================================
--- 내약통한눈에 DB 초기화 스크립트 (1/2) : 스키마 · 계정 · 테이블 생성
+-- 내약통한눈에 DB 초기화 스크립트 (1/3) : 스키마 · 테이블 생성
 --
 -- [언제 실행되나]
 --  mysql 공식 이미지는 /var/lib/mysql 이 "비어 있을 때" (= 최초 1회)
---  /docker-entrypoint-initdb.d/ 안의 *.sql, *.sql.gz 파일을 이름 순서대로 실행한다.
+--  /docker-entrypoint-initdb.d/ 안의 *.sql, *.sh, *.sql.gz 파일을 이름 순서대로 실행한다.
 --  바인드 마운트한 ~/alyak/mysql-data 에 데이터가 이미 있으면 다시 실행되지 않으므로
 --  컨테이너를 지우고 다시 만들어도 기존 데이터가 그대로 유지된다 (영속성).
 --
@@ -12,9 +12,7 @@
 --  alyak_pill : pill-api(FastAPI)     전용 - 약 카탈로그, 내 약통, 저장한 처방내역
 --  같은 MySQL 컨테이너를 쓰지만 계정과 권한을 나눠서
 --  각 서버는 자기 스키마에만 접근할 수 있다 (마이크로서비스의 "서비스별 DB" 원칙).
---
--- ※ 과제 시연용 로컬 DB 이므로 비밀번호를 이 파일에 직접 적었다.
---   실제 운영이라면 환경변수나 비밀값 관리 도구로 넘겨야 한다.
+--  계정은 비밀번호를 환경변수로 받아야 하므로 02_create_accounts.sh 가 만든다.
 -- =====================================================================
 
 
@@ -28,22 +26,8 @@ CREATE DATABASE IF NOT EXISTS alyak_pill
   DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 
--- ---------------------------------------------------------------------
--- 2. 서비스별 계정 생성 + 권한 부여
---    '%' : 같은 도커 네트워크(alyak-net)의 다른 컨테이너에서 접속 허용
---    데이터 조회·추가·수정·삭제(DML)만 허용하고, 테이블 구조 변경(DDL) 권한은 주지 않는다.
--- ---------------------------------------------------------------------
-CREATE USER IF NOT EXISTS 'alyak_user_app'@'%' IDENTIFIED BY 'REMOVED';
-GRANT SELECT, INSERT, UPDATE, DELETE ON alyak_user.* TO 'alyak_user_app'@'%';
-
-CREATE USER IF NOT EXISTS 'alyak_pill_app'@'%' IDENTIFIED BY 'REMOVED';
-GRANT SELECT, INSERT, UPDATE, DELETE ON alyak_pill.* TO 'alyak_pill_app'@'%';
-
-FLUSH PRIVILEGES;
-
-
 -- =====================================================================
--- 3. alyak_user 스키마 테이블 (user-api 가 사용)
+-- 2. alyak_user 스키마 테이블 (user-api 가 사용)
 -- =====================================================================
 
 -- 회원 테이블
@@ -61,14 +45,14 @@ CREATE TABLE IF NOT EXISTS alyak_user.users (
 
 
 -- =====================================================================
--- 4. alyak_pill 스키마 테이블 (pill-api 가 사용)
+-- 3. alyak_pill 스키마 테이블 (pill-api 가 사용)
 --    ※ user_id 는 다른 서비스(alyak_user)의 회원 번호다.
 --      서비스 간 DB 를 분리했으므로 외래키(FK)는 걸지 않고 값만 저장한다.
 -- =====================================================================
 
 -- 약 카탈로그 (식약처 낱알식별·허가정보 기반, 약 1개 = 1행)
 --  - 식약처 원천 데이터에서 웹 화면에 필요한 컬럼만 남겼다.
---  - 데이터는 02_insert_pill_catalog.sql.gz 가 넣는다. (tools/build_catalog_sql.py 로 생성)
+--  - 데이터는 03_insert_pill_catalog.sql.gz 가 넣는다. (tools/build_catalog_sql.py 로 생성)
 --  - 이미지 파일은 저장하지 않고 식약처 원본 이미지 주소(image_url)만 저장한다.
 CREATE TABLE IF NOT EXISTS alyak_pill.pill_catalog (
   item_seq             VARCHAR(20)   NOT NULL COMMENT '품목기준코드 (약 고유 ID)',

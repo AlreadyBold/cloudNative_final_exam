@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
  * 회원 엔티티 (alyak_user.users 테이블).
  *
  * <p>이메일 로그인만 지원하므로 계정과 로그인 정보를 하나의 테이블에 둔다.
- * 테이블은 db/initdb/01_create_schemas_accounts_tables.sql 이 만든다.
+ * 테이블은 db/initdb/01_create_schemas_tables.sql 이 만든다.
  */
 @Getter
 @Entity

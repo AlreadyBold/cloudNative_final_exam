@@ -9,10 +9,10 @@
 #     → "제품코드(개정후)" 를 보험코드로 추가. 보험코드가 바뀐 약도 처방내역의 새 코드로 찾을 수 있게 한다.
 #
 # [출력]
-#  db/initdb/02_insert_pill_catalog.sql.gz
+#  db/initdb/03_insert_pill_catalog.sql.gz
 #   → mysql 공식 이미지가 최초 실행 때 자동으로 압축을 풀어 실행한다.
 #
-# [만드는 테이블 데이터]  (테이블 구조는 01_create_schemas_accounts_tables.sql)
+# [만드는 테이블 데이터]  (테이블 구조는 01_create_schemas_tables.sql)
 #  alyak_pill.pill_catalog      : 약 1개 = 1행. 웹 화면에 필요한 컬럼만 추린다
 #  alyak_pill.pill_catalog_code : 보험코드(EDI) → 약. 처방내역의 약품코드로 약을 찾을 때 사용
 #  alyak_pill.dur_ingredient    : 보험코드 → 성분코드 (병용금기 검사용)
@@ -23,7 +23,7 @@
 #      --catalog ~/alyak-data/raw/catalog.jsonl \
 #      --dur-combination "~/alyak-data/raw/dur/의약품안전사용서비스(DUR)_병용금기 품목리스트 2026.6.csv" \
 #      --standard-code ~/alyak-data/raw/standard-code.csv \
-#      --out db/initdb/02_insert_pill_catalog.sql.gz
+#      --out db/initdb/03_insert_pill_catalog.sql.gz
 # =====================================================================
 import argparse
 import csv
@@ -293,7 +293,7 @@ def main():
     with gzip.GzipFile(args.out, "wb", compresslevel=9, mtime=0) as raw, \
             io.TextIOWrapper(raw, encoding="utf-8") as out:
         out.write("-- =====================================================================\n"
-                  "-- 내약통한눈에 DB 초기화 스크립트 (2/2) : 약 카탈로그 + DUR 병용금기 데이터\n"
+                  "-- 내약통한눈에 DB 초기화 스크립트 (3/3) : 약 카탈로그 + DUR 병용금기 데이터\n"
                   "--  tools/build_catalog_sql.py 가 자동 생성한 파일 (직접 수정하지 말 것)\n"
                   "-- =====================================================================\n"
                   "SET NAMES utf8mb4;\n"
