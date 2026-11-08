@@ -10,7 +10,7 @@
        → 최근 1년 조제 내역
        → 화면에 보여 주기 전에 POST /api/pill/catalog/match 로 약마다 카탈로그를 연결해 사진·[상세]를 붙인다
     3. [선택한 처방을 약통에 담기]  POST /api/pill/pillbox/prescriptions   (pill-api)
-       → 약마다 복용 기간을 따로 정한다. 기본값 = 조제일 ~ 조제일 + (그 약의 투약일수 - 1), 화면에서 고칠 수 있다.
+       → 복용 기간은 약마다 그 약의 투약일수로 자동 계산한다 : 조제일 ~ 조제일 + (투약일수 - 1)
          같은 약·같은 시작일은 서버가 건너뛴다.
 
    [개인정보 보호]
@@ -149,7 +149,7 @@ async function showResult() {
         code: drug.drug_code, name: drug.name, ingredients: drug.ingredients,
         oneDose: drug.one_dose, dailyDoses: drug.daily_doses, days: drug.total_dosing_days, effect: drug.effect,
         imageUrl: pill?.image_url, itemSeq: pill?.item_seq,
-        period: periodEditor(rx, drug, index, drugIndex),
+        period: periodView(rx, drug),
       });
     })))));
   if (state.prescriptions.length === 0) {
@@ -184,7 +184,7 @@ function sourceBadge(source) {
 /**
  * 불러온 처방 안의 약 한 줄 (사진 + 이름 + 성분·약효·복용법 + [상세])
  * @param {object} d {name, ingredients, oneDose, dailyDoses, days, effect, imageUrl, itemSeq, period}
- *   period : 복용 기간 입력칸 (periodEditor)
+ *   period : 자동 계산한 복용 기간과 상태 (periodView)
  *   itemSeq : 카탈로그와 연결된 약 ID. 있으면 [상세] 버튼(성분·성상·DUR)을 붙이고, 없으면 "카탈로그 미연결" 표시
  */
 function renderDrug(d) {
@@ -212,22 +212,15 @@ function renderDrug(d) {
 }
 
 /**
- * 약 1개의 복용 기간 입력칸 : 기본값 = 조제일 ~ 조제일 + (그 약의 투약일수 - 1) (서버 기본값과 같은 규칙)
- * 예) 조제일 11-03, 투약 7일 → 11-03 ~ 11-09. 고치면 옆의 상태(복용 완료·중·예정)가 바로 바뀐다.
- * 입력칸에 처방·약 순번(data-rx, data-drug)을 달아 두고, 담을 때 그 값을 읽는다.
+ * 약 1개의 복용 기간과 상태 (서버와 같은 규칙으로 자동 계산, 고칠 수 없음)
+ *  조제일 ~ 조제일 + (그 약의 투약일수 - 1)   예) 조제일 11-03, 투약 7일 → 11-03 ~ 11-09
  */
-function periodEditor(rx, drug, rxIndex, drugIndex) {
+function periodView(rx, drug) {
   const days = Math.max(1, parseInt(drug.total_dosing_days, 10) || 1);
   const start = rx.dispensed_date || todayString();
-  const attrs = { type: 'date', 'data-rx': rxIndex, 'data-drug': drugIndex };
-  const startInput = el('input', { ...attrs, name: 'start', value: start, 'aria-label': '복용 시작일' });
-  const endInput = el('input', { ...attrs, name: 'end', value: addDays(start, days - 1), 'aria-label': '복용 종료일' });
-  const status = el('span');
-  const refresh = () => status.replaceChildren(statusBadge(statusOf(startInput.value, endInput.value)));
-  startInput.addEventListener('change', refresh);
-  endInput.addEventListener('change', refresh);
-  refresh();
-  return el('div', { class: 'row edit-row' }, el('span', { class: 'hint' }, '복용 기간'), startInput, '~', endInput, status);
+  const end = addDays(start, days - 1);
+  return el('div', { class: 'period' },
+    statusBadge(statusOf(start, end)), ` 복용 기간 ${formatDate(start)} ~ ${formatDate(end)} (${days}일)`);
 }
 
 /** 오늘 날짜로 본 상태 (서버와 같은 규칙) : 시작 전 UPCOMING / 기간 안 TAKING / 끝남 DONE */
@@ -240,19 +233,9 @@ function statusOf(start, end) {
 
 /** 체크한 처방을 약통에 담기 */
 async function saveSelected() {
-  // 체크한 처방만, 약마다 화면에서 정한 복용 기간을 붙여서 보낸다
-  const dateOf = (rxIndex, drugIndex, name) =>
-    document.querySelector(`#import-list input[name=${name}][data-rx="${rxIndex}"][data-drug="${drugIndex}"]`).value;
+  // 체크한 처방만 보낸다 (복용 기간은 서버가 약마다 투약일수로 계산)
   const checked = [...document.querySelectorAll('#import-list input[type=checkbox]:checked')]
-    .map((box) => Number(box.dataset.index))
-    .map((rxIndex) => ({
-      ...state.prescriptions[rxIndex],
-      drugs: state.prescriptions[rxIndex].drugs.map((drug, drugIndex) => ({
-        ...drug,
-        start_date: dateOf(rxIndex, drugIndex, 'start'),
-        end_date: dateOf(rxIndex, drugIndex, 'end'),
-      })),
-    }));
+    .map((box) => state.prescriptions[Number(box.dataset.index)]);
   if (checked.length === 0) {
     toast('약통에 담을 처방을 선택해 주세요.', true);
     return;
