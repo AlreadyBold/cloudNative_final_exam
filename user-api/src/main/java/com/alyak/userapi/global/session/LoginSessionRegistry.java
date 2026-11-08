@@ -34,6 +34,8 @@ public class LoginSessionRegistry {
 
 	private static final String USER_KEY_PREFIX = "alyak:login:user:";
 	private static final String REPLACED_KEY_PREFIX = "alyak:login:replaced:";
+	/** Spring Session 이 세션을 저장하는 Redis 키 (SessionConfig 의 redisNamespace + ":sessions:") */
+	private static final String SESSION_KEY_PREFIX = "alyak:session:sessions:";
 	/** "끊긴 세션" 표시를 남겨 둘 시간 (세션 유효시간과 같은 30분) */
 	private static final Duration REPLACED_MARK_TTL = Duration.ofMinutes(30);
 
@@ -78,6 +80,11 @@ public class LoginSessionRegistry {
 	public String currentSessionId(Long userId) {
 		String sessionId = redisTemplate.opsForValue().get(USER_KEY_PREFIX + userId);
 		return sessionId != null && sessionRepository.findById(sessionId) != null ? sessionId : null;
+	}
+
+	/** 세션이 Redis 에 살아 있는지 (세션을 열지 않으므로 만료 시간이 연장되지 않는다) */
+	public boolean sessionExists(String sessionId) {
+		return Boolean.TRUE.equals(redisTemplate.hasKey(SESSION_KEY_PREFIX + sessionId));
 	}
 
 	/** 이 세션 ID 가 "다른 기기 로그인으로 끊긴 세션"인지 */

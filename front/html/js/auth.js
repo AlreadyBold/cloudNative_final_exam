@@ -86,6 +86,53 @@ export function initAuth(onLoggedIn) {
   });
 }
 
+/* ---------- 세션 상태 감시 ----------
+   다른 기기에서 같은 계정으로 로그인하면 서버는 이 브라우저의 세션을 즉시 지우지만,
+   브라우저는 다음 요청을 보낼 때까지 모른다. 그래서 로그인 화면이 열려 있는 동안
+   5초마다(그리고 탭으로 돌아올 때) GET /api/user/session/status 로 확인한다.
+   이 API 는 세션을 열지 않아서 30분 만료 시간을 연장하지 않는다. */
+const WATCH_INTERVAL_MS = 5000;
+let watchTimer = null;
+let onSessionEnded = () => {};
+
+/** 탭이 다시 보이면 바로 한 번 확인 */
+function checkWhenVisible() {
+  if (document.visibilityState === 'visible') checkSession();
+}
+
+/**
+ * 감시 시작 (로그인 후 화면을 보여 줄 때)
+ * @param {function} handler 세션이 끝났을 때 부를 함수 (안내 메시지를 넘겨준다)
+ */
+export function startSessionWatch(handler) {
+  onSessionEnded = handler;
+  stopSessionWatch();
+  watchTimer = setInterval(checkSession, WATCH_INTERVAL_MS);
+  document.addEventListener('visibilitychange', checkWhenVisible);
+}
+
+/** 감시 멈춤 (로그아웃 화면으로 갈 때) */
+export function stopSessionWatch() {
+  clearInterval(watchTimer);
+  watchTimer = null;
+  document.removeEventListener('visibilitychange', checkWhenVisible);
+}
+
+async function checkSession() {
+  let status;
+  try {
+    status = (await api.get('/api/user/session/status')).status;
+  } catch (error) {
+    return; // 네트워크 오류 등은 다음 확인에서 다시 본다
+  }
+  if (status === 'ACTIVE') return;
+  stopSessionWatch();
+  session.user = null;
+  onSessionEnded(status === 'REPLACED'
+    ? '다른 기기에서 로그인되어 로그아웃되었습니다.'
+    : '로그인이 만료되었습니다. 다시 로그인해 주세요.');
+}
+
 /** 로그아웃 : POST /api/user/logout → Redis 의 세션이 지워져 모든 서버에서 동시에 로그아웃된다 */
 export async function logout() {
   try {

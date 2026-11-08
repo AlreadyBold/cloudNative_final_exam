@@ -6,7 +6,9 @@
    ===================================================================== */
 import { initAdmin, openAdminTab, stopAdmin } from './admin.js';
 import { setUnauthorizedHandler } from './api.js';
-import { initAuth, logout, restoreSession, session } from './auth.js';
+import {
+  initAuth, logout, restoreSession, session, startSessionWatch, stopSessionWatch,
+} from './auth.js';
 import { initImporter } from './importer.js';
 import { initMyPage, loadMyPage } from './mypage.js';
 import { initPillbox, loadPillbox } from './pillbox.js';
@@ -32,6 +34,11 @@ function showApp() {
   $('admin-view').hidden = !isAdmin;
   $('who').hidden = false;
   renderWho();
+  // 다른 기기 로그인·만료로 세션이 끊기면 새로고침 없이 바로 로그인 화면으로
+  startSessionWatch((message) => {
+    showAuth();
+    toast(message, true);
+  });
   if (isAdmin) {
     openAdminTab('dashboard');
   } else {
@@ -42,6 +49,7 @@ function showApp() {
 /** 로그인 화면 보여 주기 */
 function showAuth() {
   stopAdmin(); // 대시보드 자동 새로고침 멈춤
+  stopSessionWatch(); // 세션 감시 멈춤
   $('app-view').hidden = true;
   $('admin-view').hidden = true;
   $('who').hidden = true;
