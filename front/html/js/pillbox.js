@@ -207,7 +207,22 @@ function periodText(item) {
   return range;
 }
 
-/** 약통 항목 한 줄 : 상태 배지 + 기간 + [수정](기간·메모) + [상세] + [빼기] */
+/**
+ * 복용법 한 줄 : "하루 3번 · 1번에 1개씩 · 7일분" (처방에서 담은 약만 값이 있다)
+ * CODEF(심평원) 조제 내역의 1일 투여횟수, 1회 투약량, 총 투약일수를 그대로 보여 준다.
+ * 1회 투약량이 숫자면 "개씩"을 붙이고, 숫자가 아니면(예: 0.5정, 10mL) 받은 값 그대로 쓴다.
+ */
+function dosageLine(item) {
+  const isNumber = (value) => /^\d+(\.\d+)?$/.test(String(value || '').trim());
+  const parts = [
+    item.daily_doses && `하루 ${item.daily_doses}번`,
+    item.one_dose && `1번에 ${item.one_dose}${isNumber(item.one_dose) ? '개' : ''}씩`,
+    item.total_dosing_days && `${item.total_dosing_days}일분`,
+  ].filter(Boolean);
+  return parts.length ? el('div', { class: 'dosage' }, `💊 ${parts.join(' · ')}`) : null;
+}
+
+/** 약통 항목 한 줄 : 상태 배지 + 기간 + 복용법 + [수정](기간·메모) + [상세] + [빼기] */
 function renderItem(item) {
   const detailBox = el('div', { class: 'detail', hidden: true });
   const startInput = el('input', { type: 'date', value: item.start_date, 'aria-label': '복용 시작일' });
@@ -228,6 +243,7 @@ function renderItem(item) {
       el('div', { class: 'title' }, statusBadge(item.status), ' ', item.drug_name, otcBadge(item.etc_otc),
         checkBadge(state.checks[item.id])),
       el('div', { class: 'period' }, periodText(item)),
+      dosageLine(item),
       el('div', { class: 'meta' },
         [item.memo, item.entp_name, SOURCE_TEXT[item.source]].filter(Boolean).join(' · '),
         // 카탈로그와 연결되지 않은 약(처방에만 있는 약)은 사진·상세가 없다는 표시
