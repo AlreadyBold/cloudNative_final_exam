@@ -143,6 +143,30 @@ export function formatPhoneInput(value) {
   return `${digits.slice(0, 3)}-${digits.slice(3, 3 + middle)}-${digits.slice(3 + middle)}`;
 }
 
+/* ----- 날짜 (복용 기간) ----- */
+
+/** 오늘 날짜 "2026-11-08" (브라우저의 현지 날짜 기준) */
+export function todayString() {
+  return toDateString(new Date());
+}
+
+/** "2026-11-08" 에 n 일을 더한 날짜 문자열 */
+export function addDays(dateString, days) {
+  const [y, m, d] = dateString.split('-').map(Number);
+  return toDateString(new Date(y, m - 1, d + days));
+}
+
+function toDateString(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** 복용 상태 배지 : TAKING 복용 중 / UPCOMING 복용 예정 / DONE 복용 완료 */
+const STATUS_TEXT = { TAKING: '복용 중', UPCOMING: '복용 예정', DONE: '복용 완료' };
+export function statusBadge(status) {
+  return el('span', { class: `badge ${String(status).toLowerCase()}` }, STATUS_TEXT[status] || status);
+}
+
 /** 목록이 비었을 때 보여 줄 문구 */
 export function emptyItem(text) {
   return el('li', { class: 'empty-text' }, text);

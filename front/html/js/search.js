@@ -2,11 +2,11 @@
    search.js : 약 검색 (pill-api)
      GET /api/pill/catalog/search?q=...&page=1&size=20  : 이름 검색 (전문·일반의약품 모두)
      GET /api/pill/catalog/{item_seq}                   : 상세 (성분, 성상, DUR 주의 정보) → detail.js
-   검색 결과에서 [약통에 담기]를 누르면 pillbox.js 의 addToPillbox 로 담는다.
+   검색 결과에서 [약통에 담기]를 누르면 복용 기간을 고르는 모달(pillbox.js 의 openAddDialog)이 뜬다.
    ===================================================================== */
 import { api } from './api.js';
 import { toggleDetail } from './detail.js';
-import { addToPillbox } from './pillbox.js';
+import { openAddDialog } from './pillbox.js';
 import { $, el, emptyItem, otcBadge, pillImage, saleBadge, showError, withBusy } from './ui.js';
 
 const PAGE_SIZE = 20;
@@ -63,7 +63,7 @@ function renderPill(pill) {
     el('div', { class: 'actions' },
       el('button', {
         type: 'button', class: 'btn small primary',
-        onclick: (event) => withBusy(event.currentTarget, () => addToPillbox({ item_seq: pill.item_seq, source: 'SEARCH' })),
+        onclick: () => openAddDialog({ item_seq: pill.item_seq, drug_name: pill.item_name, source: 'SEARCH' }),
       }, '약통에 담기'),
       el('button', {
         type: 'button', class: 'btn small',

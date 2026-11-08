@@ -8,7 +8,7 @@ import { setUnauthorizedHandler } from './api.js';
 import { initAuth, logout, restoreSession, session } from './auth.js';
 import { initImporter } from './importer.js';
 import { initMyPage, loadMyPage } from './mypage.js';
-import { loadPillbox } from './pillbox.js';
+import { initPillbox, loadPillbox } from './pillbox.js';
 import { loadSaved } from './saved.js';
 import { initSearch } from './search.js';
 import { initSession } from './session.js';
@@ -53,6 +53,7 @@ async function start() {
   // 각 화면의 버튼·폼 이벤트 연결
   initAuth(() => { showApp(); openTab('search'); });
   initSearch();
+  initPillbox();
   initImporter();
   initMyPage(renderWho, showAuth);
   initSession();

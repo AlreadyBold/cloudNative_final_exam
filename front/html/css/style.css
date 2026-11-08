@@ -86,6 +86,18 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .modal .form { margin: 0; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; }
 .modal-head h2 { margin: 0; }
+/* 상태 필터·빠른 기간 선택 칩 */
+.filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.chip { font: inherit; font-size: 0.85rem; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 12px; cursor: pointer; }
+.chip.active { background: var(--text); border-color: var(--text); color: #fff; }
+.add-drug { font-weight: 600; margin: 0; }
+/* 복용 상태 배지 */
+.badge.taking { background: #e7f6ee; color: var(--ok); }
+.badge.upcoming { background: #e8effc; color: var(--primary); }
+.badge.done { background: #eef2f7; color: var(--muted); }
+.item.done { opacity: 0.7; }
+.period { font-size: 0.9rem; margin-top: 2px; }
+.edit-row input[type=date] { flex: 0 1 150px; min-width: 0; }
 .form-error { color: var(--danger); font-size: 0.9rem; margin: 0; }
 
 /* ----- 폼 ----- */

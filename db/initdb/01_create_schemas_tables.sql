@@ -131,20 +131,23 @@ CREATE TABLE IF NOT EXISTS alyak_pill.dur_combination (
   KEY idx_dur_combination_b (ingredient_code_b)
 ) ENGINE = InnoDB COMMENT = 'DUR 병용금기 성분 쌍';
 
--- 내 약통 : 사용자가 "지금 먹고 있는 약"으로 담아 둔 약 목록
+-- 내 약통 : 사용자가 먹는 약과 복용 기간
 --  - 약 검색 결과에서 담거나(SEARCH), 불러온 처방내역에서 담을 수 있다(PRESCRIPTION).
 --  - 카탈로그에 없는 약(처방내역에만 있는 약)도 담을 수 있도록 item_seq 는 NULL 허용.
+--  - 복용 상태(복용 예정 / 복용 중 / 복용 완료)는 저장하지 않고 조회할 때 오늘 날짜와 기간으로 계산한다.
 CREATE TABLE IF NOT EXISTS alyak_pill.pillbox_items (
   id         BIGINT       NOT NULL AUTO_INCREMENT,
   user_id    BIGINT       NOT NULL COMMENT '회원 번호 (alyak_user.users.id, 세션에서 얻음)',
   item_seq   VARCHAR(20)      NULL COMMENT '카탈로그 약 ID (카탈로그에 없으면 NULL)',
   drug_code  VARCHAR(20)      NULL COMMENT '보험 약품코드 (처방내역에서 담은 경우)',
   drug_name  VARCHAR(500) NOT NULL COMMENT '약품명 (담은 시점 이름 그대로 보관)',
+  start_date DATE         NOT NULL COMMENT '복용 시작일',
+  end_date   DATE         NOT NULL COMMENT '복용 종료일 (이 날까지 먹는다)',
   memo       VARCHAR(200)     NULL COMMENT '사용자 메모 (예: 아침 식후 1알)',
   source     VARCHAR(20)  NOT NULL COMMENT '담은 경로 (SEARCH / PRESCRIPTION)',
   created_at DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '담은 시각',
   PRIMARY KEY (id),
-  KEY idx_pillbox_items_user (user_id)
+  KEY idx_pillbox_items_user (user_id, end_date)
 ) ENGINE = InnoDB COMMENT = '내 약통';
 
 -- 저장한 처방내역 (조제 1건 = 1행)

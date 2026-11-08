@@ -92,7 +92,14 @@
     <!-- [2] 내 약통 : /api/pill/pillbox -->
     <section class="card tab-panel" id="tab-pillbox" hidden>
       <h2>내 약통</h2>
-      <p class="hint">지금 먹고 있는 약을 모아 둡니다. 약 검색이나 처방내역에서 담을 수 있어요.</p>
+      <p class="hint">먹는 약과 복용 기간을 모아 둡니다. 오늘 날짜로 복용 예정 · 복용 중 · 복용 완료를 알려 줘요.</p>
+      <!-- 상태별로 골라 보기 (화면에서만 거른다) -->
+      <div class="filters" id="pillbox-filters">
+        <button type="button" class="chip active" data-status="ALL">전체</button>
+        <button type="button" class="chip" data-status="TAKING">복용 중</button>
+        <button type="button" class="chip" data-status="UPCOMING">복용 예정</button>
+        <button type="button" class="chip" data-status="DONE">복용 완료</button>
+      </div>
       <ul class="list" id="pillbox-list"></ul>
     </section>
 
@@ -199,6 +206,30 @@
       <ul class="log" id="request-log"></ul>
     </section>
   </main>
+
+  <!-- ===== 약통에 담기 모달 : 복용 기간을 정해서 담는다 (js/pillbox.js) ===== -->
+  <dialog id="add-dialog" class="modal" aria-labelledby="add-title">
+    <form id="add-form" class="form">
+      <div class="modal-head">
+        <h2 id="add-title">약통에 담기</h2>
+        <button type="button" class="btn ghost small" id="add-close" aria-label="닫기">✕</button>
+      </div>
+      <p class="add-drug" id="add-drug-name"></p>
+      <label>복용 시작일 <input name="start_date" type="date" required></label>
+      <label>복용 종료일 (이 날까지 먹어요) <input name="end_date" type="date" required></label>
+      <!-- 시작일부터 며칠 먹는지 빠르게 고르기 -->
+      <div class="row quick-days">
+        <span class="hint">기간</span>
+        <button type="button" class="chip" data-days="1">1일</button>
+        <button type="button" class="chip" data-days="3">3일</button>
+        <button type="button" class="chip" data-days="7">7일</button>
+        <button type="button" class="chip" data-days="30">30일</button>
+      </div>
+      <label>메모 (선택) <input name="memo" maxlength="200" placeholder="예: 아침 식후 1알"></label>
+      <p class="form-error" id="add-error" role="alert" hidden></p>
+      <button type="submit" class="btn primary">담기</button>
+    </form>
+  </dialog>
 
   <!-- 화면의 시작점. type="module" 이라 import/export 로 파일을 나눠 쓸 수 있다 -->
   <script type="module" src="/js/main.js"></script>

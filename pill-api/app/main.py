@@ -51,7 +51,13 @@ async def handle_business(request: Request, error: BusinessError):
 
 @app.exception_handler(RequestValidationError)
 async def handle_validation(request: Request, error: RequestValidationError):
-    """요청 값 검증 실패 → 400. 어떤 필드가 틀렸는지 알려 준다."""
+    """
+    요청 값 검증 실패 → 400.
+    직접 만든 검사(ValueError)의 한국어 메시지는 그대로, 나머지는 어떤 필드가 틀렸는지 알려 준다.
+    """
+    messages = [e["msg"].removeprefix("Value error, ") for e in error.errors() if e["type"] == "value_error"]
+    if messages:
+        return JSONResponse(status_code=400, content=fail(ErrorCode.COMMON_INVALID_INPUT, " ".join(messages)))
     fields = sorted({".".join(str(p) for p in e["loc"][1:]) or str(e["loc"][0]) for e in error.errors()})
     return JSONResponse(status_code=400, content=fail(
         ErrorCode.COMMON_INVALID_INPUT, "요청 값이 올바르지 않습니다: " + ", ".join(fields)))

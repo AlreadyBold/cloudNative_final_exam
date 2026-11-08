@@ -1,16 +1,23 @@
 """
-내 약통 API (로그인 필요) : 사용자가 "지금 먹고 있는 약"으로 담아 둔 목록
-  GET    /api/pill/pillbox       : 목록
-  POST   /api/pill/pillbox       : 담기 (약 검색 결과 또는 처방내역에서)
-  PATCH  /api/pill/pillbox/{id}  : 메모 수정
+내 약통 API (로그인 필요) : 사용자가 먹는 약과 복용 기간
+  GET    /api/pill/pillbox       : 목록 (복용 상태 포함 : 복용 중 → 복용 예정 → 복용 완료 순)
+  POST   /api/pill/pillbox       : 담기 (약 검색 결과 또는 처방내역에서, 복용 시작일·종료일 지정)
+  PATCH  /api/pill/pillbox/{id}  : 복용 기간·메모 수정
   DELETE /api/pill/pillbox/{id}  : 빼기
+
+[복용 상태] 저장하지 않고 조회할 때마다 오늘 날짜로 계산한다.
+  오늘 < 시작일           → UPCOMING (복용 예정)
+  시작일 ≤ 오늘 ≤ 종료일   → TAKING   (복용 중)
+  종료일 < 오늘           → DONE     (복용 완료)
+  "오늘"은 DB 서버의 날짜(CURDATE(), 한국 시간 +09:00)를 써서 어느 컨테이너가 계산해도 같다.
 
 회원 번호(user_id)는 요청 본문이 아니라 "세션"에서 가져온다. 그래서 다른 사람의 약통은 볼 수도, 고칠 수도 없다.
 """
+import datetime
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
 from app.db import engine, rows_to_dicts
@@ -20,30 +27,56 @@ from app.session import LoginUser, login_required
 
 router = APIRouter(prefix="/api/pill/pillbox", tags=["내 약통"])
 
-# 약통 항목 + 카탈로그 정보(사진, 모양). 카탈로그에 없는 약도 보여 주기 위해 LEFT JOIN
+# 한 번에 지정할 수 있는 최대 복용 기간 (입력 실수로 수십 년이 들어가는 것을 막는다)
+MAX_PERIOD_DAYS = 3650
+
+# 약통 항목 + 복용 상태 + 카탈로그 정보(사진, 모양). 카탈로그에 없는 약도 보여 주기 위해 LEFT JOIN
 SELECT_ITEMS = """
-    SELECT b.id, b.item_seq, b.drug_code, b.drug_name, b.memo, b.source, b.created_at,
+    SELECT b.id, b.item_seq, b.drug_code, b.drug_name, b.start_date, b.end_date, b.memo, b.source, b.created_at,
+           CASE WHEN b.start_date > CURDATE() THEN 'UPCOMING'
+                WHEN b.end_date < CURDATE()   THEN 'DONE'
+                ELSE 'TAKING' END AS status,
+           DATEDIFF(b.end_date, CURDATE()) AS days_left,
            p.image_url, p.entp_name, p.drug_shape, p.color1, p.etc_otc, p.class_name
     FROM pillbox_items b
     LEFT JOIN pill_catalog p ON p.item_seq = b.item_seq
 """
 
 
-class AddRequest(BaseModel):
+class Period(BaseModel):
+    """복용 기간 검사 : 종료일이 시작일보다 빠르거나, 기간이 너무 길면 거절"""
+
+    @model_validator(mode="after")
+    def check_period(self):
+        start, end = getattr(self, "start_date", None), getattr(self, "end_date", None)
+        if start and end:
+            if end < start:
+                raise ValueError("복용 종료일은 시작일보다 빠를 수 없습니다.")
+            if (end - start).days > MAX_PERIOD_DAYS:
+                raise ValueError(f"복용 기간은 최대 {MAX_PERIOD_DAYS}일까지 정할 수 있습니다.")
+        return self
+
+
+class AddRequest(Period):
     """
-    담기 요청. 셋 중 하나는 있어야 한다.
-      약 검색에서 담기    : {"item_seq": "200300406", "source": "SEARCH"}
-      처방내역에서 담기   : {"drug_code": "073400340", "drug_name": "리피토정10밀리그램", "source": "PRESCRIPTION"}
+    담기 요청. 약 정보(셋 중 하나) + 복용 기간.
+      약 검색에서 담기  : {"item_seq": "200300406", "start_date": "2026-11-08", "end_date": "2026-11-14",
+                          "source": "SEARCH"}
+      처방에서 담기     : {"drug_code": "073400340", "drug_name": "리피토정10밀리그램", ..., "source": "PRESCRIPTION"}
     """
     item_seq: Optional[str] = Field(None, max_length=20)
     drug_code: Optional[str] = Field(None, max_length=20)
     drug_name: Optional[str] = Field(None, max_length=500)
+    start_date: datetime.date
+    end_date: datetime.date
     memo: Optional[str] = Field(None, max_length=200)
     source: Literal["SEARCH", "PRESCRIPTION"]
 
 
-class MemoRequest(BaseModel):
-    """메모 수정. 예) {"memo": "아침 식후 1알"} (빈 값이면 메모 삭제)"""
+class UpdateRequest(Period):
+    """수정 요청. 보낸 항목만 바꾼다. 예) {"start_date": "...", "end_date": "...", "memo": "아침 식후 1알"}"""
+    start_date: Optional[datetime.date] = None
+    end_date: Optional[datetime.date] = None
     memo: Optional[str] = Field(None, max_length=200)
 
 
@@ -55,19 +88,37 @@ def find_item(conn, user_id, item_id):
     return dict(row._mapping)
 
 
+def is_duplicate(conn, user_id, item_seq, drug_code, drug_name, start_date):
+    """
+    같은 약을 같은 날부터 먹는 항목이 이미 있는지.
+    같은 약이라도 기간이 다르면(예: 지난달 처방, 이번 달 처방) 따로 담을 수 있다.
+    약이 같은지는 카탈로그 약 ID → 보험코드 → 약품명 순으로 비교한다.
+    """
+    return conn.execute(text("""
+        SELECT 1 FROM pillbox_items
+        WHERE user_id = :user_id AND start_date = :start_date
+          AND (   (:item_seq IS NOT NULL AND item_seq = :item_seq)
+               OR (:item_seq IS NULL AND :drug_code IS NOT NULL AND drug_code = :drug_code)
+               OR (:item_seq IS NULL AND :drug_code IS NULL AND drug_name = :drug_name))
+        LIMIT 1
+    """), {"user_id": user_id, "start_date": start_date, "item_seq": item_seq,
+           "drug_code": drug_code, "drug_name": drug_name}).first() is not None
+
+
 @router.get("")
 def list_items(user: LoginUser = Depends(login_required)):
-    """내 약통 목록 (최근에 담은 순)"""
+    """내 약통 목록 : 복용 중 → 복용 예정 → 복용 완료, 같은 상태 안에서는 최근에 시작한 순"""
     with engine.connect() as conn:
-        rows = rows_to_dicts(conn.execute(
-            text(SELECT_ITEMS + " WHERE b.user_id = :user_id ORDER BY b.created_at DESC, b.id DESC"),
-            {"user_id": user.user_id}))
+        rows = rows_to_dicts(conn.execute(text(SELECT_ITEMS + """
+            WHERE b.user_id = :user_id
+            ORDER BY FIELD(status, 'TAKING', 'UPCOMING', 'DONE'), b.start_date DESC, b.id DESC
+        """), {"user_id": user.user_id}))
     return ok(rows)
 
 
 @router.post("", status_code=201)
 def add_item(body: AddRequest, user: LoginUser = Depends(login_required)):
-    """약통에 약 담기. 같은 약을 두 번 담으면 409."""
+    """약통에 약 담기. 같은 약을 같은 시작일로 두 번 담으면 409."""
     if not (body.item_seq or body.drug_code or body.drug_name):
         raise BusinessError(ErrorCode.COMMON_INVALID_INPUT, "담을 약 정보가 없습니다.")
 
@@ -91,32 +142,32 @@ def add_item(body: AddRequest, user: LoginUser = Depends(login_required)):
                 drug_name = conn.execute(text("SELECT item_name FROM pill_catalog WHERE item_seq = :s"),
                                          {"s": item_seq}).scalar()
 
-        # 중복 확인 : 같은 카탈로그 약, 또는 (카탈로그에 없으면) 같은 보험코드
-        duplicate = conn.execute(text("""
-            SELECT 1 FROM pillbox_items
-            WHERE user_id = :user_id
-              AND ((:item_seq IS NOT NULL AND item_seq = :item_seq)
-                OR (:item_seq IS NULL AND :drug_code IS NOT NULL AND drug_code = :drug_code))
-            LIMIT 1
-        """), {"user_id": user.user_id, "item_seq": item_seq, "drug_code": body.drug_code}).first()
-        if duplicate:
+        if is_duplicate(conn, user.user_id, item_seq, body.drug_code, drug_name, body.start_date):
             raise BusinessError(ErrorCode.PILLBOX_DUPLICATE)
 
         result = conn.execute(text("""
-            INSERT INTO pillbox_items (user_id, item_seq, drug_code, drug_name, memo, source)
-            VALUES (:user_id, :item_seq, :drug_code, :drug_name, :memo, :source)
-        """), {"user_id": user.user_id, "item_seq": item_seq, "drug_code": body.drug_code,
-               "drug_name": drug_name, "memo": (body.memo or "").strip() or None, "source": body.source})
+            INSERT INTO pillbox_items (user_id, item_seq, drug_code, drug_name, start_date, end_date, memo, source)
+            VALUES (:user_id, :item_seq, :drug_code, :drug_name, :start_date, :end_date, :memo, :source)
+        """), {"user_id": user.user_id, "item_seq": item_seq, "drug_code": body.drug_code, "drug_name": drug_name,
+               "start_date": body.start_date, "end_date": body.end_date,
+               "memo": (body.memo or "").strip() or None, "source": body.source})
         return ok(find_item(conn, user.user_id, result.lastrowid))
 
 
 @router.patch("/{item_id}")
-def update_memo(item_id: int, body: MemoRequest, user: LoginUser = Depends(login_required)):
-    """메모 수정"""
+def update_item(item_id: int, body: UpdateRequest, user: LoginUser = Depends(login_required)):
+    """복용 기간·메모 수정 (보낸 항목만)"""
     with engine.begin() as conn:
-        find_item(conn, user.user_id, item_id)  # 내 약통의 항목인지 확인 (아니면 404)
-        conn.execute(text("UPDATE pillbox_items SET memo = :memo WHERE id = :id AND user_id = :user_id"),
-                     {"memo": (body.memo or "").strip() or None, "id": item_id, "user_id": user.user_id})
+        current = find_item(conn, user.user_id, item_id)  # 내 약통의 항목인지 확인 (아니면 404)
+        start = body.start_date or current["start_date"]
+        end = body.end_date or current["end_date"]
+        if end < start:
+            raise BusinessError(ErrorCode.COMMON_INVALID_INPUT, "복용 종료일은 시작일보다 빠를 수 없습니다.")
+        memo = current["memo"] if "memo" not in body.model_fields_set else ((body.memo or "").strip() or None)
+        conn.execute(text("""
+            UPDATE pillbox_items SET start_date = :start, end_date = :end, memo = :memo
+            WHERE id = :id AND user_id = :user_id
+        """), {"start": start, "end": end, "memo": memo, "id": item_id, "user_id": user.user_id})
         return ok(find_item(conn, user.user_id, item_id))
 
 

@@ -6,7 +6,7 @@
    ===================================================================== */
 import { api } from './api.js';
 import { toggleDetail } from './detail.js';
-import { addToPillbox } from './pillbox.js';
+import { openAddDialog } from './pillbox.js';
 import { $, el, emptyItem, formatDate, pillImage, showError, toast, withBusy } from './ui.js';
 
 /** 저장한 처방 탭을 열 때마다 새로 불러온다 */
@@ -70,8 +70,7 @@ export function renderDrug(d) {
     el('div', { class: 'actions' },
       el('button', {
         type: 'button', class: 'btn small primary',
-        onclick: (event) => withBusy(event.currentTarget,
-          () => addToPillbox({ drug_code: d.code || null, drug_name: d.name, source: 'PRESCRIPTION' })),
+        onclick: () => openAddDialog({ drug_code: d.code || null, drug_name: d.name, source: 'PRESCRIPTION' }),
       }, '약통에 담기'),
       // 카탈로그와 연결된 약만 상세 정보가 있다
       d.itemSeq ? el('button', {

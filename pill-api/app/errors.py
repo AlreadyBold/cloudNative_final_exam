@@ -24,7 +24,7 @@ class ErrorCode(Enum):
 
     # ----- 내 약통 -----
     PILLBOX_ITEM_NOT_FOUND = (404, "내 약통에서 약을 찾을 수 없습니다.")
-    PILLBOX_DUPLICATE = (409, "이미 내 약통에 담긴 약입니다.")
+    PILLBOX_DUPLICATE = (409, "같은 날부터 먹는 같은 약이 이미 약통에 있습니다.")
 
     # ----- 저장한 처방내역 -----
     PRESCRIPTION_NOT_FOUND = (404, "저장한 처방내역을 찾을 수 없습니다.")
