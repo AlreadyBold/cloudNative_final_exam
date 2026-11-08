@@ -6,7 +6,8 @@
      · 실제로 시작·끝나는 날만 모서리를 둥글게, 약 이름은 그 주 띠의 첫 칸에만 쓴다
      · 한 주에 보여 줄 줄(약) 수를 넘치면 날짜 칸에 +N
    - 병용금기 약을 함께 먹게 되는 날짜에는 ⚠ 표시
-   - 날짜를 누르면 아래에 그날 먹는 약 목록과 복용법을 보여 준다
+   - 날짜를 누르면 아래에 그날 먹는 약 목록과 복용법을 보여 주고, 고른 날짜를 onSelect 로 알린다
+     (pillbox.js 가 그날에 해당하는 병용금기·같은 성분·같은 효능 안내만 보여 준다)
    - 좁은 화면(휴대폰)에서는 약 이름 대신 색깔 점만 보인다 (style.css)
 
    날짜는 모두 "YYYY-MM-DD" 문자열로 다룬다. 이 형식은 글자 순서 = 날짜 순서라서 문자열 비교(<, >)가 곧 날짜 비교다.
@@ -30,8 +31,9 @@ let colorById = new Map();
  * @param {Array} items        약통 항목 (start_date, end_date, drug_name, status ...)
  * @param {Array} pairs        병용금기 쌍 (overlap_start, overlap_end)
  * @param {function} describe  약 1개 → 복용법 글자 ("하루 3번 · 1번에 1개씩"), pillbox.js 가 넘긴다
+ * @param {function} onSelect  고른 날짜("YYYY-MM-DD")를 알려 줄 함수 (그릴 때마다 한 번 부른다)
  */
-export function renderCalendar(box, items, pairs, describe) {
+export function renderCalendar(box, items, pairs, describe, onSelect = () => {}) {
   view.month = view.month || `${todayString().slice(0, 7)}-01`;
   view.selected = view.selected || todayString();
   colorById = new Map([...items].sort((a, b) => a.id - b.id).map((item, i) => [item.id, COLORS[i % COLORS.length]]));
@@ -52,7 +54,8 @@ export function renderCalendar(box, items, pairs, describe) {
     grid.append(weekRow(cells.slice(i, i + 7), items, pairs));
   }
 
-  box.replaceChildren(header, grid, dayDetail(view.selected, items, pairs, describe));
+  box.replaceChildren(header, grid, dayDetail(view.selected, items, describe));
+  onSelect(view.selected);
 
   // 달을 넘기거나 날짜를 고르면 같은 데이터로 다시 그린다
   function move(step) {
@@ -62,7 +65,7 @@ export function renderCalendar(box, items, pairs, describe) {
     redraw();
   }
   function redraw() {
-    renderCalendar(box, items, pairs, describe);
+    renderCalendar(box, items, pairs, describe, onSelect);
   }
   // 날짜 칸을 누르면 그 날짜를 고른다
   grid.addEventListener('click', (event) => {
@@ -159,13 +162,11 @@ function shortName(name) {
 }
 
 /** 고른 날짜에 먹는 약 목록 */
-function dayDetail(date, items, pairs, describe) {
+function dayDetail(date, items, describe) {
   const taking = itemsOn(date, items);
   const [, m, d] = date.split('-').map(Number);
   return el('div', { class: 'cal-detail' },
     el('h3', {}, `${m}월 ${d}일에 먹는 약 ${taking.length}개`),
-    hasConflict(date, pairs)
-      ? el('p', { class: 'cal-warn' }, '⚠ 이날 함께 먹으면 안 되는 약이 있습니다. 위의 병용금기 안내를 확인하세요.') : null,
     taking.length === 0 ? el('p', { class: 'hint' }, '이날 먹는 약이 없습니다.') : el('ul', { class: 'cal-list' },
       taking.map((item) => el('li', {},
         el('span', { class: 'cal-dot', style: `--bar:${colorOf(item)}` }),

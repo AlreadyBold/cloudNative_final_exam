@@ -118,8 +118,8 @@ export async function loadPillbox() {
     state.sameIngredient = [];
     state.sameEfficacy = [];
   }
-  renderCalendar($('pillbox-calendar'), state.items, state.pairs, dosageText);
-  renderDurAlert();
+  // 캘린더에서 날짜를 고를 때마다 그날에 해당하는 검사 결과만 보여 준다 (처음에는 오늘)
+  renderCalendar($('pillbox-calendar'), state.items, state.pairs, dosageText, renderDurAlert);
   render();
 }
 
@@ -128,65 +128,66 @@ function overlapText(p) {
   return `${formatDate(p.overlap_start)} ~ ${formatDate(p.overlap_end)} 함께 복용`;
 }
 
+/** 그날 두 약을 함께 먹는지 (겹치는 기간 안에 그 날짜가 있는지) */
+const onDate = (date) => (p) => p.overlap_start <= date && date <= p.overlap_end;
+
+/** "11월 10일" */
+function dayLabel(date) {
+  const [, m, d] = date.split('-').map(Number);
+  return `${m}월 ${d}일`;
+}
+
 /**
- * 함께 먹는 약 검사 결과 배너 (위에서부터 중요한 순서)
- *  1) ⚠ 병용금기       : 약 쌍, 사유, 성분, 함께 먹게 되는 기간 (없으면 "검사한 약 수" 안내)
+ * 함께 먹는 약 검사 결과 : 캘린더에서 고른 날짜에 해당하는 것만 보여 준다 (해당 없으면 숨김)
+ *  1) ⚠ 병용금기       : 약 쌍, 사유, 성분, 함께 먹게 되는 기간
  *  2) ⚠ 같은 성분 중복 : 같은 성분이 두 번 들어감 → 과다 복용 위험
  *  3) ℹ 같은 효능      : 비슷한 효능의 약을 함께 먹고 있음 (참고)
+ * @param {string} date 캘린더에서 고른 날짜 "YYYY-MM-DD"
  */
-function renderDurAlert() {
+function renderDurAlert(date) {
   const box = $('dur-alert');
-  const checks = Object.values(state.checks);
-  if (checks.length === 0) {
-    box.hidden = true;
-    return;
-  }
-  // 배너 여러 개를 나란히 넣는 묶음 (병용금기 → 같은 성분 → 같은 효능)
-  box.replaceChildren(durBanner(checks), ...renderDuplicateNotes());
-  box.hidden = false;
+  const pairs = state.pairs.filter(onDate(date));
+  const sameIngredient = state.sameIngredient.filter(onDate(date));
+  const sameEfficacy = state.sameEfficacy.filter(onDate(date));
+  const notes = [
+    pairs.length ? durBanner(date, pairs) : null,
+    sameIngredient.length ? sameIngredientNote(date, sameIngredient) : null,
+    sameEfficacy.length ? sameEfficacyNote(date, sameEfficacy) : null,
+  ].filter(Boolean);
+  box.replaceChildren(...notes);
+  box.hidden = notes.length === 0;
 }
 
-/** 같은 성분 중복(경고)과 같은 효능(안내) 목록 */
-function renderDuplicateNotes() {
-  const notes = [];
-  if (state.sameIngredient.length > 0) {
-    notes.push(el('div', { class: 'dur-alert warn' },
-      el('div', { class: 'dur-title' }, `⚠ 같은 성분이 겹치는 약이 ${state.sameIngredient.length}쌍 있습니다 (과다 복용 주의)`),
-      el('ul', {}, state.sameIngredient.map((p) => el('li', {},
-        el('b', {}, `${p.item_a.drug_name} × ${p.item_b.drug_name}`),
-        el('div', {}, `겹치는 성분 : ${p.ingredients.join(', ')}`),
-        el('div', { class: 'dur-sub-text' }, overlapText(p)))))));
-  }
-  if (state.sameEfficacy.length > 0) {
-    notes.push(el('div', { class: 'dur-alert info' },
-      el('div', { class: 'dur-title' }, `ℹ 효능이 비슷한 약이 ${state.sameEfficacy.length}쌍 있습니다`),
-      el('ul', {}, state.sameEfficacy.map((p) => el('li', {},
-        el('b', {}, `${p.item_a.drug_name} × ${p.item_b.drug_name}`),
-        el('div', {}, `같은 약효 분류 : ${p.class_name || ''} (ATC ${p.atc_group})`),
-        el('div', { class: 'dur-sub-text' }, overlapText(p)))))));
-  }
-  return notes;
+/** ⚠ 병용금기 (빨강) */
+function durBanner(date, pairs) {
+  return el('div', { class: 'dur-alert danger' },
+    el('div', { class: 'dur-title' }, `⚠ ${dayLabel(date)}에 함께 먹으면 안 되는 약이 ${pairs.length}쌍 있습니다`),
+    el('ul', {}, pairs.map((p) => el('li', {},
+      el('b', {}, `${p.item_a.drug_name} × ${p.item_b.drug_name}`),
+      el('div', {}, p.detail || '병용금기'),
+      el('div', { class: 'dur-sub-text' }, `${p.ingredient_a} × ${p.ingredient_b} · ${overlapText(p)}`)))),
+    el('div', { class: 'dur-sub-text' },
+      '심평원 DUR(의약품안전사용서비스) 병용금기 정보를 바탕으로 한 안내입니다. 복용을 바꾸기 전에 의사·약사와 상담하세요.'));
 }
 
-/** 병용금기 배너 (금기가 있으면 빨간 경고, 없으면 초록 확인) */
-function durBanner(checks) {
-  const notice = el('div', { class: 'dur-sub-text' },
-    '심평원 DUR(의약품안전사용서비스) 병용금기 정보를 바탕으로 한 안내입니다. 복용을 바꾸기 전에 의사·약사와 상담하세요.');
-  const unknown = checks.filter((c) => c === 'UNKNOWN').length;
-  if (state.pairs.length > 0) {
-    return el('div', { class: 'dur-alert danger' },
-      el('div', { class: 'dur-title' }, `⚠ 함께 먹으면 안 되는 약이 ${state.pairs.length}쌍 있습니다`),
-      el('ul', {}, state.pairs.map((p) => el('li', {},
-        el('b', {}, `${p.item_a.drug_name} × ${p.item_b.drug_name}`),
-        el('div', {}, p.detail || '병용금기'),
-        el('div', { class: 'dur-sub-text' }, `${p.ingredient_a} × ${p.ingredient_b} · ${overlapText(p)}`)))),
-      notice);
-  }
-  return el('div', { class: 'dur-alert ok' },
-    el('div', { class: 'dur-title' },
-      `✓ 복용 중·예정인 약 ${checks.length - unknown}개를 검사했고, 함께 먹으면 안 되는 조합이 없습니다`
-      + (unknown ? ` (성분 정보가 없는 약 ${unknown}개는 검사하지 못했습니다)` : '')),
-    notice);
+/** ⚠ 같은 성분 중복 (주황) */
+function sameIngredientNote(date, list) {
+  return el('div', { class: 'dur-alert warn' },
+    el('div', { class: 'dur-title' }, `⚠ ${dayLabel(date)}에 같은 성분이 겹치는 약이 ${list.length}쌍 있습니다 (과다 복용 주의)`),
+    el('ul', {}, list.map((p) => el('li', {},
+      el('b', {}, `${p.item_a.drug_name} × ${p.item_b.drug_name}`),
+      el('div', {}, `겹치는 성분 : ${p.ingredients.join(', ')}`),
+      el('div', { class: 'dur-sub-text' }, overlapText(p))))));
+}
+
+/** ℹ 같은 효능 (파랑) */
+function sameEfficacyNote(date, list) {
+  return el('div', { class: 'dur-alert info' },
+    el('div', { class: 'dur-title' }, `ℹ ${dayLabel(date)}에 효능이 비슷한 약이 ${list.length}쌍 있습니다`),
+    el('ul', {}, list.map((p) => el('li', {},
+      el('b', {}, `${p.item_a.drug_name} × ${p.item_b.drug_name}`),
+      el('div', {}, `같은 약효 분류 : ${p.class_name || ''} (ATC ${p.atc_group})`),
+      el('div', { class: 'dur-sub-text' }, overlapText(p))))));
 }
 
 /** 현재 필터에 맞는 항목만 그린다 */
