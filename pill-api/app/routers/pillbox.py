@@ -3,7 +3,7 @@
   GET    /api/pill/pillbox       : 목록 (복용 상태 포함 : 복용 중 → 복용 예정 → 복용 완료 순)
   POST   /api/pill/pillbox       : 담기 (약 검색 결과 또는 처방내역에서, 복용 시작일·종료일 지정)
   POST   /api/pill/pillbox/prescriptions : 불러온 처방을 한 번에 담기 (복용 기간은 처방으로 계산)
-  GET    /api/pill/pillbox/interactions  : 병용금기 검사 (함께 먹으면 안 되는 약 쌍)
+  GET    /api/pill/pillbox/interactions  : 함께 먹는 약 검사 (병용금기 · 같은 성분 중복 · 같은 효능)
   PATCH  /api/pill/pillbox/{id}  : 복용 기간·메모 수정
   DELETE /api/pill/pillbox/{id}  : 빼기
 
@@ -241,8 +241,13 @@ def dur_key(ingredient_code):
 @router.get("/interactions")
 def interactions(user: LoginUser = Depends(login_required)):
     """
-    병용금기 검사 : 아직 끝나지 않은 약(복용 중·복용 예정) 중 복용 기간이 겹치는 두 약이
-    DUR 병용금기 성분 쌍에 해당하는지 본다. (끝난 약과는 함께 먹는 게 아니므로 검사하지 않는다)
+    함께 먹는 약 검사 : 아직 끝나지 않은 약(복용 중·복용 예정) 중 복용 기간이 겹치는 두 약을 비교한다.
+    (끝난 약과는 함께 먹는 게 아니므로 검사하지 않는다)
+      1) 병용금기   : DUR 병용금기 성분 쌍에 해당 (pairs)
+      2) 같은 성분  : 두 약에 같은 원료 성분이 들어 있음 → 과다 복용 위험 (same_ingredient)
+                     예) 타이레놀 + 판콜에이내복액 (둘 다 아세트아미노펜)
+      3) 같은 효능  : WHO ATC 약효 분류 앞 5자리(4단계)가 같음 → 비슷한 약을 함께 먹고 있음 (same_efficacy)
+                     예) N02BE (아닐리드계 해열진통제). 같은 성분으로 이미 잡힌 쌍은 빼고 알려 준다
 
     [약의 성분 찾기]
       카탈로그와 연결된 약 : pill_ingredient (보험코드로 찾은 성분 + 표준코드의 일반명코드)
@@ -253,7 +258,9 @@ def interactions(user: LoginUser = Depends(login_required)):
       {"pairs": [{"item_a": {...}, "item_b": {...}, "ingredient_a": "atorvastatin ...",
                   "ingredient_b": "itraconazole", "detail": "근육병증 ...",
                   "overlap_start": "2026-11-10", "overlap_end": "2026-11-16"}],
-       "items": [{"id": 3, "check": "CONFLICT"}, ...]}   ← CONFLICT 병용금기 / CHECKED 확인됨 / UNKNOWN 성분 정보 없음
+       "items": [{"id": 3, "check": "CONFLICT"}, ...],   ← CONFLICT 병용금기 / CHECKED 확인됨 / UNKNOWN 성분 정보 없음
+       "same_ingredient": [{"item_a": {...}, "item_b": {...}, "ingredients": ["아세트아미노펜"], "overlap_start", ...}],
+       "same_efficacy": [{"item_a": {...}, "item_b": {...}, "atc_group": "N02BE", "class_name": "해열.진통.소염제", ...}]}
     """
     with engine.connect() as conn:
         items = rows_to_dicts(conn.execute(text("""
@@ -294,12 +301,41 @@ def interactions(user: LoginUser = Depends(login_required)):
             """).bindparams(bindparam("keys", expanding=True)), {"keys": all_keys}))
             combos = {(r["ingredient_key_a"], r["ingredient_key_b"]): r for r in rows}
 
-    # 기간이 겹치는 두 약마다 성분 키 쌍을 비교
+        # 같은 성분·같은 효능 비교용 : 카탈로그와 연결된 약의 원료 성분(비교용 이름)과 ATC 코드
+        components, atc = {}, {}
+        if seqs:
+            rows = conn.execute(text("""
+                SELECT item_seq, ingredient_key, ingredient_name FROM pill_catalog_ingredient WHERE item_seq IN :seqs
+            """).bindparams(bindparam("seqs", expanding=True)), {"seqs": seqs}).all()
+            for seq, key, name in rows:
+                components.setdefault(seq, {}).setdefault(key, name)
+            rows = conn.execute(text("""
+                SELECT item_seq, atc_code, class_name FROM pill_catalog WHERE item_seq IN :seqs AND atc_code IS NOT NULL
+            """).bindparams(bindparam("seqs", expanding=True)), {"seqs": seqs}).all()
+            atc = {seq: (code, class_name) for seq, code, class_name in rows}
+
+    # 기간이 겹치는 두 약마다 비교
     pairs, conflict_ids = [], set()
+    same_ingredient, same_efficacy = [], []
     for index, a in enumerate(items):
         for b in items[index + 1:]:
             if a["start_date"] > b["end_date"] or b["start_date"] > a["end_date"]:
                 continue  # 복용 기간이 겹치지 않음
+            both = {
+                "item_a": {"id": a["id"], "drug_name": a["drug_name"]},
+                "item_b": {"id": b["id"], "drug_name": b["drug_name"]},
+                "overlap_start": max(a["start_date"], b["start_date"]),
+                "overlap_end": min(a["end_date"], b["end_date"]),
+            }
+            # 2) 같은 성분
+            shared = sorted(set(components.get(a["item_seq"], {})) & set(components.get(b["item_seq"], {})))
+            if shared:
+                same_ingredient.append({**both, "ingredients": [components[a["item_seq"]][k] for k in shared]})
+            # 3) 같은 효능 (ATC 4단계 = 앞 5자리). 같은 성분으로 이미 잡혔으면 빼고
+            atc_a, atc_b = atc.get(a["item_seq"]), atc.get(b["item_seq"])
+            if not shared and atc_a and atc_b and len(atc_a[0]) >= 5 and atc_a[0][:5] == atc_b[0][:5]:
+                same_efficacy.append({**both, "atc_group": atc_a[0][:5], "class_name": atc_a[1] or atc_b[1]})
+            # 1) 병용금기
             found = set()
             for key_a in keys[a["id"]]:
                 for key_b in keys[b["id"]]:
@@ -321,7 +357,7 @@ def interactions(user: LoginUser = Depends(login_required)):
 
     checks = [{"id": i["id"], "check": "CONFLICT" if i["id"] in conflict_ids
                else ("CHECKED" if keys[i["id"]] else "UNKNOWN")} for i in items]
-    return ok({"pairs": pairs, "items": checks})
+    return ok({"pairs": pairs, "items": checks, "same_ingredient": same_ingredient, "same_efficacy": same_efficacy})
 
 
 @router.patch("/{item_id}")
