@@ -86,6 +86,33 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .modal .form { margin: 0; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; }
 .modal-head h2 { margin: 0; }
+/* ----- 복용 캘린더 (내 약통 맨 위) ----- */
+.calendar { margin: 8px 0 16px; }
+.cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cal-head b { min-width: 100px; text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.cal-weekday { text-align: center; font-size: 0.8rem; color: var(--muted); padding: 4px 0; background: #fafbfc; border-bottom: 1px solid var(--line); }
+.cal-weekday:first-child { color: var(--danger); }
+.cal-day { min-height: 84px; padding: 4px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: pointer; overflow: hidden; }
+.cal-day:nth-child(7n) { border-right: none; }
+.cal-day:hover { background: #f7f9fc; }
+.cal-day.other-month { background: #fafbfc; color: #b8c0ca; }
+.cal-day.today .cal-date { background: var(--primary); color: #fff; border-radius: 999px; padding: 0 6px; display: inline-block; }
+.cal-day.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
+.cal-date { font-size: 0.8rem; margin-bottom: 2px; }
+.cal-warn { color: var(--danger); font-weight: 700; }
+.cal-bar { font-size: 0.72rem; line-height: 1.3; padding: 1px 4px; margin-top: 2px; border-radius: 4px; color: #fff;
+  background: var(--bar); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-more { font-size: 0.72rem; color: var(--muted); }
+.cal-detail h3 { margin-top: 12px; }
+.cal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.cal-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--bar); margin-right: 6px; }
+/* 휴대폰 화면 : 약 이름 대신 색깔 점 */
+@media (max-width: 600px) {
+  .cal-day { min-height: 52px; }
+  .cal-bar { display: inline-block; width: 8px; height: 8px; padding: 0; border-radius: 50%; font-size: 0; margin-right: 2px; }
+}
+
 /* 병용금기 검사 결과 배너 */
 .dur-alert { border-radius: var(--radius); padding: 12px 14px; margin: 8px 0 12px; }
 .dur-alert.danger { background: #fdecec; border: 1px solid #f3b9b9; }

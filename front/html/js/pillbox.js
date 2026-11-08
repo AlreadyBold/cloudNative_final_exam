@@ -10,6 +10,7 @@
    회원 번호는 보내지 않는다. pill-api 가 SESSION 쿠키로 Redis 세션을 읽어 알아낸다.
    ===================================================================== */
 import { api } from './api.js';
+import { renderCalendar } from './calendar.js';
 import { toggleDetail } from './detail.js';
 import {
   $, addDays, el, emptyItem, formValues, formatDate, otcBadge, pillImage, showError, statusBadge, toast,
@@ -117,6 +118,7 @@ export async function loadPillbox() {
     state.sameIngredient = [];
     state.sameEfficacy = [];
   }
+  renderCalendar($('pillbox-calendar'), state.items, state.pairs, dosageText);
   renderDurAlert();
   render();
 }
@@ -213,14 +215,19 @@ function periodText(item) {
  * 1회 투약량이 숫자면 "개씩"을 붙이고, 숫자가 아니면(예: 0.5정, 10mL) 받은 값 그대로 쓴다.
  */
 function dosageLine(item) {
+  const text = dosageText(item, true);
+  return text ? el('div', { class: 'dosage' }, `💊 ${text}`) : null;
+}
+
+/** 복용법 글자 (캘린더의 날짜별 목록에서도 쓴다). withDays 면 "7일분"까지 붙인다 */
+function dosageText(item, withDays = false) {
   const isNumber = (value) => /^\d+(\.\d+)?$/.test(String(value || '').trim());
-  const parts = [
+  return [
     item.effect,
     item.daily_doses && `하루 ${item.daily_doses}번`,
     item.one_dose && `1번에 ${item.one_dose}${isNumber(item.one_dose) ? '개' : ''}씩`,
-    item.total_dosing_days && `${item.total_dosing_days}일분`,
-  ].filter(Boolean);
-  return parts.length ? el('div', { class: 'dosage' }, `💊 ${parts.join(' · ')}`) : null;
+    withDays && item.total_dosing_days && `${item.total_dosing_days}일분`,
+  ].filter(Boolean).join(' · ');
 }
 
 /** 약통 항목 한 줄 : 상태 배지 + 기간 + 복용법 + [수정](기간·메모) + [상세] + [빼기] */

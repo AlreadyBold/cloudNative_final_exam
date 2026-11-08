@@ -92,6 +92,8 @@
     <section class="card tab-panel" id="tab-pillbox">
       <h2>내 약통</h2>
       <p class="hint">먹는 약과 복용 기간을 모아 둡니다. 오늘 날짜로 복용 예정 · 복용 중 · 복용 완료를 알려 줘요.</p>
+      <!-- 복용 캘린더 : 날짜마다 먹는 약 (js/calendar.js 가 그린다, 날짜를 누르면 그날 먹는 약 목록) -->
+      <div class="calendar" id="pillbox-calendar"></div>
       <!-- 병용금기 검사 결과 (GET /api/pill/pillbox/interactions, js/pillbox.js 가 채운다) -->
       <div id="dur-alert" hidden></div>
       <!-- 상태별로 골라 보기 (화면에서만 거른다) -->
