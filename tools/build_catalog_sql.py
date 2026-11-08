@@ -16,8 +16,14 @@
 #  alyak_pill.pill_catalog      : 약 1개 = 1행. 웹 화면에 필요한 컬럼만 추린다
 #  alyak_pill.pill_catalog_code : 보험코드(EDI) → 약. 처방내역의 약품코드로 약을 찾을 때 사용
 #  alyak_pill.pill_catalog_dur  : 약별 DUR 주의 정보 (임부금기·연령금기·노인주의·병용금기, 약 상세 화면용)
-#  alyak_pill.dur_ingredient    : 보험코드 → 성분코드 (병용금기 검사용)
-#  alyak_pill.dur_combination   : 함께 먹으면 안 되는 성분 쌍 (제품 쌍 87만 행 → 성분 쌍 약 2만 4천 행)
+#  alyak_pill.pill_ingredient   : 약 → 성분코드 (병용금기 검사용. 보험코드로 찾은 성분 + 표준코드의 일반명코드)
+#  alyak_pill.dur_ingredient    : 보험코드 → 성분코드 (카탈로그와 연결되지 않은 처방약의 병용금기 검사용)
+#  alyak_pill.dur_combination   : 함께 먹으면 안 되는 성분 쌍 (제품 쌍 87만 행 → 성분·투여경로 쌍 약 3천 8백 행)
+#
+# [성분코드(9자리)와 병용금기 키(5자리)]
+#  성분코드 = 성분 4자리 + 함량 2자리 + 투여경로 1자리(A 내복, B 주사, C 외용 …) + 제형 2자리  예) 111501ATB
+#  병용금기는 보통 "성분" 단위로 정해지므로, 함량·제형을 빼고 성분 4자리 + 투여경로 1자리(예: 1115A)로 비교한다.
+#  → 목록에 없는 함량·제형의 약도 같은 성분이면 검사되고, 먹는 약과 바르는 약은 구분된다.
 #
 # [사용법] (저장소 최상위 폴더에서, 파이썬 표준 라이브러리만 사용)
 #  python3 tools/build_catalog_sql.py \
@@ -275,10 +281,19 @@ def read_standard_codes(path, known_item_seqs):
     return rows
 
 
+def dur_key(ingredient_code):
+    """성분코드 9자리 → 병용금기 비교 키 5자리 (성분 4자리 + 투여경로 1자리). 예) 111501ATB → 1115A"""
+    return ingredient_code[:4] + ingredient_code[6:7]
+
+
 def read_dur_combination(path):
-    """병용금기 CSV(제품 쌍) → 보험코드-성분 매핑, 성분 쌍"""
+    """
+    병용금기 CSV(제품 쌍) → (보험코드-성분 매핑 행, 성분·경로 쌍 행, 보험코드→성분코드 dict)
+    한 성분 쌍에 사유가 여러 개면 가장 많이 나온 사유를 쓴다.
+    """
     ingredient_by_edi = {}
     pairs = {}
+    names = {}
     # 심평원 CSV 는 CP949(한글 윈도우) 인코딩
     with open(path, encoding="cp949", newline="") as file:
         for row in csv.DictReader(file):
@@ -288,13 +303,44 @@ def read_dur_combination(path):
                 if edi and code:
                     ingredient_by_edi[edi] = (code, cut(row["성분명" + side].strip(), 500))
             code_a, code_b = row["성분코드A"].strip(), row["성분코드B"].strip()
-            if not code_a or not code_b or code_a == code_b:
+            if len(code_a) != 9 or len(code_b) != 9:
                 continue
-            key = tuple(sorted((code_a, code_b)))  # (A,B) 와 (B,A) 를 같은 쌍으로
-            pairs.setdefault(key, cut(row["상세정보"].strip(), 1000) or None)
+            key_a, key_b = dur_key(code_a), dur_key(code_b)
+            if key_a == key_b:
+                continue
+            names.setdefault(key_a, cut(row["성분명A"].strip(), 300))
+            names.setdefault(key_b, cut(row["성분명B"].strip(), 300))
+            key = tuple(sorted((key_a, key_b)))  # (A,B) 와 (B,A) 를 같은 쌍으로
+            pairs.setdefault(key, {})
+            detail = row["상세정보"].strip()
+            pairs[key][detail] = pairs[key].get(detail, 0) + 1
     edi_rows = [(edi, code, name) for edi, (code, name) in sorted(ingredient_by_edi.items())]
-    pair_rows = [(a, b, detail) for (a, b), detail in sorted(pairs.items())]
-    return edi_rows, pair_rows
+    pair_rows = [(a, b, names[a], names[b], cut(max(details, key=details.get), 1000) or None)
+                 for (a, b), details in sorted(pairs.items())]
+    return edi_rows, pair_rows, {edi: code for edi, (code, _) in ingredient_by_edi.items()}
+
+
+def read_generic_codes(path, known_item_seqs):
+    """약가마스터 표준코드 CSV → {품목기준코드: {일반명코드(성분코드 9자리), ...}}. 카탈로그에 있는 약만."""
+    generic = {}
+    with open(path, encoding="cp949", newline="") as file:
+        for row in csv.DictReader(file):
+            item_seq = (row.get("품목기준코드") or "").strip()
+            code = (row.get("일반명코드(성분명코드)") or "").strip()
+            if item_seq in known_item_seqs and len(code) == 9:
+                generic.setdefault(item_seq, set()).add(code)
+    return generic
+
+
+def ingredient_rows_of(code_rows, edi_to_ingredient, generic_codes):
+    """약 → 성분코드 행 : 약의 보험코드로 찾은 성분 + 표준코드의 일반명코드 (중복 제거)"""
+    by_item = {}
+    for code_type, code, item_seq in code_rows:
+        if code_type == "EDI" and code in edi_to_ingredient:
+            by_item.setdefault(item_seq, set()).add(edi_to_ingredient[code])
+    for item_seq, codes in generic_codes.items():
+        by_item.setdefault(item_seq, set()).update(codes)
+    return [(item_seq, code) for item_seq in sorted(by_item) for code in sorted(by_item[item_seq])]
 
 
 def main():
@@ -310,7 +356,10 @@ def main():
         code_rows += read_standard_codes(os.path.expanduser(args.standard_code), {r[0] for r in catalog_rows})
     # (코드 종류, 코드, 약) 이 같은 행은 하나만 (테이블의 UNIQUE 키와 같은 기준)
     code_rows = list(dict.fromkeys(code_rows))
-    edi_rows, pair_rows = read_dur_combination(os.path.expanduser(args.dur_combination))
+    edi_rows, pair_rows, edi_to_ingredient = read_dur_combination(os.path.expanduser(args.dur_combination))
+    generic_codes = (read_generic_codes(os.path.expanduser(args.standard_code), {r[0] for r in catalog_rows})
+                     if args.standard_code else {})
+    ingredient_rows = ingredient_rows_of(code_rows, edi_to_ingredient, generic_codes)
 
     # mtime=0 : 같은 입력이면 항상 같은 파일이 나오게 (git 에서 불필요한 변경 방지)
     with gzip.GzipFile(args.out, "wb", compresslevel=9, mtime=0) as raw, \
@@ -329,14 +378,17 @@ def main():
         write_inserts(out, "alyak_pill.pill_catalog_code", ["code_type", "code", "item_seq"], code_rows)
         write_inserts(out, "alyak_pill.pill_catalog_dur",
                       ["item_seq", "dur_type", "partner_ingredient", "grade", "age_condition", "detail"], dur_rows)
+        write_inserts(out, "alyak_pill.pill_ingredient", ["item_seq", "ingredient_code"], ingredient_rows)
         write_inserts(out, "alyak_pill.dur_ingredient", ["edi_code", "ingredient_code", "ingredient_name"], edi_rows)
         write_inserts(out, "alyak_pill.dur_combination",
-                      ["ingredient_code_a", "ingredient_code_b", "detail"], pair_rows)
+                      ["ingredient_key_a", "ingredient_key_b", "ingredient_name_a", "ingredient_name_b", "detail"],
+                      pair_rows)
         out.write("\nCOMMIT;\n")
 
     print("pill_catalog      {:>7,} 행 (알약 {:,})".format(len(catalog_rows), sum(1 for r in catalog_rows if r[20])))
     print("pill_catalog_code {:>7,} 행".format(len(code_rows)))
     print("pill_catalog_dur  {:>7,} 행".format(len(dur_rows)))
+    print("pill_ingredient   {:>7,} 행 (약 {:,}개)".format(len(ingredient_rows), len({r[0] for r in ingredient_rows})))
     print("dur_ingredient    {:>7,} 행".format(len(edi_rows)))
     print("dur_combination   {:>7,} 행".format(len(pair_rows)))
     print("출력 : {} ({:.1f} MB)".format(args.out, os.path.getsize(args.out) / 1024 / 1024))

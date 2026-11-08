@@ -108,10 +108,19 @@ CREATE TABLE IF NOT EXISTS alyak_pill.pill_catalog_dur (
   KEY idx_pill_catalog_dur_item (item_seq, dur_type)
 ) ENGINE = InnoDB COMMENT = '약별 DUR 주의 정보';
 
--- DUR 병용금기 검사용 (1/2) : 보험코드(EDI) → 성분코드
+-- DUR 병용금기 검사용 (1/3) : 약 → 성분코드
 --  - "내 약통"에 담긴 약끼리 함께 먹으면 안 되는 조합이 있는지 검사할 때 사용한다.
+--  - 약의 보험코드로 찾은 성분 + 심평원 약가마스터 표준코드의 일반명코드(보험코드가 없는 일반의약품도 포함).
+--  - 성분코드(9자리) = 성분 4자리 + 함량 2자리 + 투여경로 1자리 + 제형 2자리  예) 111501ATB
+CREATE TABLE IF NOT EXISTS alyak_pill.pill_ingredient (
+  item_seq        VARCHAR(20) NOT NULL COMMENT '약 (pill_catalog.item_seq)',
+  ingredient_code VARCHAR(20) NOT NULL COMMENT '성분코드 9자리',
+  PRIMARY KEY (item_seq, ingredient_code)
+) ENGINE = InnoDB COMMENT = '약별 성분코드';
+
+-- DUR 병용금기 검사용 (2/3) : 보험코드(EDI) → 성분코드
+--  - 카탈로그와 연결되지 않은 처방약(보험코드만 있는 약)을 검사할 때 사용한다.
 --  - 심평원 DUR 병용금기 품목리스트(CSV)의 제품코드/성분코드 열에서 만든다.
---  - 성분코드(9자리) = 성분 4자리 + 함량 2자리 + 투여경로 1자리 + 제형 2자리
 CREATE TABLE IF NOT EXISTS alyak_pill.dur_ingredient (
   edi_code        VARCHAR(20)  NOT NULL COMMENT '보험코드 (제품코드)',
   ingredient_code VARCHAR(20)  NOT NULL COMMENT '성분코드',
@@ -120,15 +129,18 @@ CREATE TABLE IF NOT EXISTS alyak_pill.dur_ingredient (
   KEY idx_dur_ingredient_code (ingredient_code)
 ) ENGINE = InnoDB COMMENT = 'DUR 보험코드-성분 매핑';
 
--- DUR 병용금기 검사용 (2/2) 성분 쌍 : "성분 A 와 성분 B 를 함께 먹으면 안 된다"
---  - 원본 CSV 는 제품 쌍 단위(약 87만 행)라서, 같은 성분 쌍을 하나로 합쳐 약 2만 4천 행으로 줄였다.
---  - 항상 code_a < code_b 로 저장해서 (A,B) 와 (B,A) 가 중복되지 않게 한다.
+-- DUR 병용금기 검사용 (3/3) 성분 쌍 : "성분 A 와 성분 B 를 함께 먹으면 안 된다"
+--  - 원본 CSV 는 제품 쌍 단위(약 87만 행)라서, "성분 4자리 + 투여경로 1자리" 키로 합쳐 약 3천 8백 행으로 줄였다.
+--    (병용금기는 보통 성분 단위로 정해지므로 함량·제형은 비교하지 않고, 먹는 약·주사·바르는 약은 구분한다)
+--  - 항상 key_a < key_b 로 저장해서 (A,B) 와 (B,A) 가 중복되지 않게 한다.
 CREATE TABLE IF NOT EXISTS alyak_pill.dur_combination (
-  ingredient_code_a VARCHAR(20)   NOT NULL COMMENT '성분코드 (작은 쪽)',
-  ingredient_code_b VARCHAR(20)   NOT NULL COMMENT '성분코드 (큰 쪽)',
-  detail            VARCHAR(1000)     NULL COMMENT '금기 사유 (예: 혈중농도 상승 및 근육병증 위험 증가)',
-  PRIMARY KEY (ingredient_code_a, ingredient_code_b),
-  KEY idx_dur_combination_b (ingredient_code_b)
+  ingredient_key_a  VARCHAR(10)   NOT NULL COMMENT '성분·경로 키 (작은 쪽, 예: 1115A)',
+  ingredient_key_b  VARCHAR(10)   NOT NULL COMMENT '성분·경로 키 (큰 쪽)',
+  ingredient_name_a VARCHAR(300)  NOT NULL COMMENT '성분명 A (영문)',
+  ingredient_name_b VARCHAR(300)  NOT NULL COMMENT '성분명 B (영문)',
+  detail            VARCHAR(1000)     NULL COMMENT '금기 사유 (예: 근육병증, 횡문근융해증 위험 증가 가능)',
+  PRIMARY KEY (ingredient_key_a, ingredient_key_b),
+  KEY idx_dur_combination_b (ingredient_key_b)
 ) ENGINE = InnoDB COMMENT = 'DUR 병용금기 성분 쌍';
 
 -- 내 약통 : 사용자가 먹는 약과 복용 기간
