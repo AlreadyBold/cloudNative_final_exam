@@ -94,29 +94,30 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; }
 .modal-head h2 { margin: 0; }
 /* ----- 복용 캘린더 (내 약통 맨 위) ----- */
-.calendar { margin: 8px 0 16px; }
+/* 가로·세로 모두 기존보다 20% 작게 : 폭 80% 가운데, 칸·띠 높이 80% */
+.calendar { width: 80%; margin: 8px auto 16px; }
 .cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .cal-head b { min-width: 100px; text-align: center; }
 .cal-grid { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .cal-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: #fafbfc; border-bottom: 1px solid var(--line); }
-.cal-weekday { text-align: center; font-size: 0.8rem; color: var(--muted); padding: 4px 0; }
+.cal-weekday { text-align: center; font-size: 0.72rem; color: var(--muted); padding: 3px 0; }
 .cal-weekday:first-child { color: var(--danger); }
 /* 한 주 줄 : 1행 = 날짜 숫자, 2행부터 = 약 띠 줄들, 마지막 행 = +N / 여백 */
 .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-template-rows: 26px repeat(var(--lanes), 22px) minmax(16px, auto); border-bottom: 1px solid var(--line); }
+  grid-template-rows: 21px repeat(var(--lanes), 18px) minmax(13px, auto); border-bottom: 1px solid var(--line); }
 .cal-week:last-child { border-bottom: none; }
-.cal-day { border-right: 1px solid var(--line); padding: 3px 4px; cursor: pointer; min-height: 72px; }
+.cal-day { border-right: 1px solid var(--line); padding: 2px 4px; cursor: pointer; min-height: 58px; }
 .cal-day:nth-child(7) { border-right: none; }
 .cal-day:hover { background: #f7f9fc; }
 .cal-day.other-month { background: #fafbfc; color: #b8c0ca; }
 .cal-day.today .cal-date { background: var(--primary); color: #fff; border-radius: 999px; padding: 0 6px; display: inline-block; }
 .cal-day.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
-.cal-date { font-size: 0.8rem; }
+.cal-date { font-size: 0.72rem; }
 .cal-warn { color: var(--danger); font-weight: 700; }
 /* 약 띠 : 칸 사이를 건너 이어진다. 클릭은 아래의 날짜 칸이 받도록 pointer-events 를 끈다
    파스텔 스타일 : 약별 색(--bar)을 흰색에 연하게 섞은 배경 + 진하게 섞은 글자·테두리, 약 이름은 가운데 */
-.cal-bar { position: relative; z-index: 1; pointer-events: none; align-self: center; height: 18px; margin: 0 -1px;
-  font-size: 0.72rem; font-weight: 600; line-height: 16px; padding: 0 6px; text-align: center;
+.cal-bar { position: relative; z-index: 1; pointer-events: none; align-self: center; height: 15px; margin: 0 -1px;
+  font-size: 0.66rem; font-weight: 600; line-height: 13px; padding: 0 6px; text-align: center;
   color: color-mix(in srgb, var(--bar) 75%, black);
   background: color-mix(in srgb, var(--bar) 16%, white);
   border-top: 1px solid color-mix(in srgb, var(--bar) 35%, white);
@@ -132,6 +133,7 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .cal-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--bar); margin-right: 6px; }
 /* 휴대폰 화면 : 띠를 얇게, 글자 없이 */
 @media (max-width: 600px) {
+  .calendar { width: 100%; }
   .cal-week { grid-template-rows: 22px repeat(var(--lanes), 8px) minmax(10px, auto); }
   .cal-day { min-height: 48px; }
   .cal-bar { height: 6px; font-size: 0; padding: 0; background: var(--bar); border: none; }
