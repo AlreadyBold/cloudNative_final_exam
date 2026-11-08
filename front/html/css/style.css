@@ -90,27 +90,37 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .calendar { margin: 8px 0 16px; }
 .cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .cal-head b { min-width: 100px; text-align: center; }
-.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.cal-weekday { text-align: center; font-size: 0.8rem; color: var(--muted); padding: 4px 0; background: #fafbfc; border-bottom: 1px solid var(--line); }
+.cal-grid { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.cal-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: #fafbfc; border-bottom: 1px solid var(--line); }
+.cal-weekday { text-align: center; font-size: 0.8rem; color: var(--muted); padding: 4px 0; }
 .cal-weekday:first-child { color: var(--danger); }
-.cal-day { min-height: 84px; padding: 4px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: pointer; overflow: hidden; }
-.cal-day:nth-child(7n) { border-right: none; }
+/* 한 주 줄 : 1행 = 날짜 숫자, 2행부터 = 약 띠 줄들, 마지막 행 = +N / 여백 */
+.cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: 26px repeat(var(--lanes), 22px) minmax(16px, auto); border-bottom: 1px solid var(--line); }
+.cal-week:last-child { border-bottom: none; }
+.cal-day { border-right: 1px solid var(--line); padding: 3px 4px; cursor: pointer; min-height: 72px; }
+.cal-day:nth-child(7) { border-right: none; }
 .cal-day:hover { background: #f7f9fc; }
 .cal-day.other-month { background: #fafbfc; color: #b8c0ca; }
 .cal-day.today .cal-date { background: var(--primary); color: #fff; border-radius: 999px; padding: 0 6px; display: inline-block; }
 .cal-day.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
-.cal-date { font-size: 0.8rem; margin-bottom: 2px; }
+.cal-date { font-size: 0.8rem; }
 .cal-warn { color: var(--danger); font-weight: 700; }
-.cal-bar { font-size: 0.72rem; line-height: 1.3; padding: 1px 4px; margin-top: 2px; border-radius: 4px; color: #fff;
-  background: var(--bar); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-more { font-size: 0.72rem; color: var(--muted); }
+/* 약 띠 : 칸 사이를 건너 이어진다. 클릭은 아래의 날짜 칸이 받도록 pointer-events 를 끈다 */
+.cal-bar { position: relative; z-index: 1; pointer-events: none; align-self: center; height: 18px; margin: 0 -1px;
+  font-size: 0.72rem; line-height: 18px; padding: 0 6px; color: #fff; background: var(--bar);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-bar.starts { margin-left: 4px; border-top-left-radius: 5px; border-bottom-left-radius: 5px; }
+.cal-bar.ends { margin-right: 4px; border-top-right-radius: 5px; border-bottom-right-radius: 5px; }
+.cal-more { position: relative; z-index: 1; pointer-events: none; font-size: 0.72rem; color: var(--muted); padding: 0 6px; }
 .cal-detail h3 { margin-top: 12px; }
 .cal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .cal-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--bar); margin-right: 6px; }
-/* 휴대폰 화면 : 약 이름 대신 색깔 점 */
+/* 휴대폰 화면 : 띠를 얇게, 글자 없이 */
 @media (max-width: 600px) {
-  .cal-day { min-height: 52px; }
-  .cal-bar { display: inline-block; width: 8px; height: 8px; padding: 0; border-radius: 50%; font-size: 0; margin-right: 2px; }
+  .cal-week { grid-template-rows: 22px repeat(var(--lanes), 8px) minmax(10px, auto); }
+  .cal-day { min-height: 48px; }
+  .cal-bar { height: 6px; font-size: 0; padding: 0; }
 }
 
 /* 병용금기 검사 결과 배너 */
