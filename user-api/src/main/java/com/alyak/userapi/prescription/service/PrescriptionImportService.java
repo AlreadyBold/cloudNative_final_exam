@@ -40,7 +40,7 @@ import lombok.RequiredArgsConstructor;
  *
  * <h3>서버 2대 구성과 재현성을 위한 처리</h3>
  * <ul>
- *   <li>대기 정보와 하루 횟수를 서버 메모리가 아니라 Redis 에 둔다 (user-api 2대 구성 대응)</li>
+ *   <li>대기 정보와 하루 조회 횟수를 서버 메모리가 아니라 Redis 에 둔다 (user-api 2대 구성 대응)</li>
  *   <li>같은 회원은 동시에 1건만 진행 (ImportLock, 다른 기기 요청은 409)</li>
  *   <li>CODEF 키가 없으면 실제 호출 대신 모의(MOCK) 모드 : 같은 2단계 흐름으로 샘플 데이터를 돌려준다</li>
  * </ul>
@@ -93,7 +93,7 @@ public class PrescriptionImportService {
 				pending = new PendingImport(userId, sessionId, PrescriptionDataSource.MOCK, Map.of(), Map.of());
 			} else {
 				// ----- 실제 모드 -----
-				dailyLimiter.increaseOrThrow(userId);
+				dailyLimiter.increaseOrThrow(userId); // 계정당 하루 횟수 제한 (Redis)
 				CodefResponse response = codefClient.request(PRODUCT_URL, withIdentity(baseParameters, identity));
 				// 간편인증은 항상 추가인증을 거친다. 바로 성공/실패가 오면 1차 요청값이 잘못된 것
 				if (!response.requiresTwoWay()) {
