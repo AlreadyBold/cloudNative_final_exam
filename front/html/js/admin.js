@@ -3,6 +3,7 @@
      GET  /api/user/admin/dashboard                    : 컨테이너 상태 + 회원·세션 통계
      GET  /api/user/admin/members                      : 회원 목록
      POST /api/user/admin/members/{id}/reset-password  : 비밀번호를 test1234 로 초기화 (+ 그 회원 로그아웃)
+   [세션 확인] 탭은 session.js 가 담당한다 (서버 분산 + 세션 공유 검증, 과제 시연용).
 
    - 일반 사용자가 이 화면의 API 를 직접 불러도 서버가 403 으로 막는다 (화면 숨기기는 보조 수단일 뿐).
    - 관리자도 사용자의 약 정보(내 약통)는 볼 수 없다. 약 정보는 pill-api 에만 있고 여기서는 부르지 않는다.
