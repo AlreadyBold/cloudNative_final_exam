@@ -2,9 +2,13 @@
 약 카탈로그 API (로그인 없이 사용 가능)
   GET  /api/pill/catalog/search?q=타이레놀&page=1&size=20 : 약 이름 검색
   GET  /api/pill/catalog/{item_seq}                      : 약 상세 (DUR 주의 정보 포함)
+  POST /api/pill/catalog/match                           : 처방약 목록 → 카탈로그 약 연결 (불러온 처방에 사진·상세 붙이기)
 """
+from typing import List, Optional
+
 from fastapi import APIRouter, Query
-from sqlalchemy import text
+from pydantic import BaseModel, Field
+from sqlalchemy import bindparam, text
 
 from app.db import engine, rows_to_dicts
 from app.errors import BusinessError, ErrorCode, ok
@@ -85,6 +89,35 @@ def search(q: str = Query(..., min_length=1, max_length=100, description="약 �
             LIMIT :limit OFFSET :offset
         """), params))
     return ok({"items": rows[:size], "page": page, "size": size, "has_next": len(rows) > size})
+
+
+class MatchDrug(BaseModel):
+    """처방약 1개 (user-api 가 돌려준 drugs[i] 의 보험코드와 약품명)"""
+    drug_code: Optional[str] = Field(None, max_length=20)
+    name: Optional[str] = Field(None, max_length=500)
+
+
+class MatchRequest(BaseModel):
+    """예) {"drugs": [{"drug_code": "643303510", "name": "코데닝정"}, ...]}"""
+    drugs: List[MatchDrug] = Field(..., min_length=1, max_length=200)
+
+
+@router.post("/match")
+def match(body: MatchRequest):
+    """
+    불러온 처방의 약들을 카탈로그와 연결한다. 저장할 때와 같은 규칙(보험코드 → 약품명)을 쓴다.
+    응답은 요청 순서 그대로의 목록이고, 연결하지 못한 약은 null 이다.
+      예) [{"item_seq": "199103287", "image_url": "...", ...}, null, ...]
+    """
+    with engine.connect() as conn:
+        item_seqs = [match_catalog(conn, d.drug_code, d.name) for d in body.drugs]
+        found = {s for s in item_seqs if s}
+        summaries = {}
+        if found:
+            rows = conn.execute(text(f"SELECT {SUMMARY_COLUMNS} FROM pill_catalog p WHERE p.item_seq IN :seqs")
+                                .bindparams(bindparam("seqs", expanding=True)), {"seqs": sorted(found)})
+            summaries = {r["item_seq"]: r for r in rows_to_dicts(rows)}
+    return ok([summaries.get(s) if s else None for s in item_seqs])
 
 
 @router.get("/{item_seq}")

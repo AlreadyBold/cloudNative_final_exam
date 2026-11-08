@@ -5,6 +5,7 @@
    처방 안의 약 한 줄을 그리는 renderDrug 는 "처방내역 불러오기" 화면(importer.js)에서도 쓴다.
    ===================================================================== */
 import { api } from './api.js';
+import { toggleDetail } from './detail.js';
 import { addToPillbox } from './pillbox.js';
 import { $, el, emptyItem, formatDate, pillImage, showError, toast, withBusy } from './ui.js';
 
@@ -35,7 +36,7 @@ function renderPrescription(rx) {
     el('ul', { class: 'rx-drugs' }, rx.drugs.map((drug) => renderDrug({
       code: drug.drug_code, name: drug.drug_name, ingredients: drug.ingredients,
       oneDose: drug.one_dose, dailyDoses: drug.daily_doses, days: drug.total_dosing_days,
-      effect: drug.effect, imageUrl: drug.image_url, linked: Boolean(drug.item_seq),
+      effect: drug.effect, imageUrl: drug.image_url, itemSeq: drug.item_seq,
     }))));
 }
 
@@ -46,7 +47,8 @@ export function sourceBadge(source) {
 
 /**
  * 처방 안의 약 한 줄 + [약통에 담기]
- * @param {object} d {code, name, ingredients, oneDose, dailyDoses, days, effect, imageUrl, linked}
+ * @param {object} d {code, name, ingredients, oneDose, dailyDoses, days, effect, imageUrl, itemSeq}
+ *   itemSeq : 카탈로그와 연결된 약 ID. 있으면 [상세] 버튼(성분·성상·DUR)을 붙이고, 없으면 "카탈로그 미연결" 표시
  */
 export function renderDrug(d) {
   // "1회 1 · 하루 3번 · 5일" 처럼 복용법을 한 줄로
@@ -56,18 +58,26 @@ export function renderDrug(d) {
     d.days && `${d.days}일`,
   ].filter(Boolean).join(' · ');
 
+  const detailBox = el('div', { class: 'detail', hidden: true });
+
   return el('li', { class: 'item' },
     pillImage(d.imageUrl, d.name),
     el('div', { class: 'body' },
       el('div', { class: 'title' }, d.name),
       el('div', { class: 'meta' }, [d.ingredients, d.effect, dosage].filter(Boolean).join(' · ')),
-      d.linked === false ? el('span', { class: 'badge warn' }, '카탈로그 미연결') : null),
+      d.itemSeq ? null : el('span', { class: 'badge warn' }, '카탈로그 미연결'),
+      detailBox),
     el('div', { class: 'actions' },
       el('button', {
         type: 'button', class: 'btn small primary',
         onclick: (event) => withBusy(event.currentTarget,
           () => addToPillbox({ drug_code: d.code || null, drug_name: d.name, source: 'PRESCRIPTION' })),
-      }, '약통에 담기')));
+      }, '약통에 담기'),
+      // 카탈로그와 연결된 약만 상세 정보가 있다
+      d.itemSeq ? el('button', {
+        type: 'button', class: 'btn small',
+        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(d.itemSeq, detailBox)),
+      }, '상세') : null));
 }
 
 /** 처방 삭제 : DELETE /api/pill/prescriptions/{id} (내 약통에 담아 둔 약은 지워지지 않는다) */

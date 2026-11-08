@@ -7,6 +7,7 @@
    회원 번호는 보내지 않는다. pill-api 가 SESSION 쿠키로 Redis 세션을 읽어 알아낸다.
    ===================================================================== */
 import { api } from './api.js';
+import { toggleDetail } from './detail.js';
 import { $, el, emptyItem, formatDate, otcBadge, pillImage, showError, toast, withBusy } from './ui.js';
 
 const SOURCE_TEXT = { SEARCH: '검색에서 담음', PRESCRIPTION: '처방에서 담음' };
@@ -39,6 +40,7 @@ export async function loadPillbox() {
 /** 약통 항목 한 줄 (메모 입력칸 포함) */
 function renderItem(item) {
   const memoInput = el('input', { value: item.memo || '', placeholder: '메모 (예: 아침 식후 1알)', maxlength: '200' });
+  const detailBox = el('div', { class: 'detail', hidden: true });
 
   return el('li', { class: 'item' },
     pillImage(item.image_url, item.drug_name),
@@ -53,8 +55,14 @@ function renderItem(item) {
         el('button', {
           type: 'button', class: 'btn small',
           onclick: (event) => withBusy(event.currentTarget, () => saveMemo(item.id, memoInput.value)),
-        }, '메모 저장'))),
+        }, '메모 저장')),
+      detailBox),
     el('div', { class: 'actions' },
+      // 카탈로그와 연결된 약만 상세 정보(성분·성상·DUR)가 있다
+      item.item_seq ? el('button', {
+        type: 'button', class: 'btn small',
+        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(item.item_seq, detailBox)),
+      }, '상세') : null,
       el('button', {
         type: 'button', class: 'btn small danger',
         onclick: (event) => withBusy(event.currentTarget, () => removeItem(item)),

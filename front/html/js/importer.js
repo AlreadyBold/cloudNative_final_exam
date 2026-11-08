@@ -8,6 +8,7 @@
        ※ 같은 아이디로 다른 기기에서 진행 중이면 409 (PRESCRIPTION_IMPORT_IN_PROGRESS)
     2. [인증 완료]  POST /api/user/prescriptions/import/{id}/complete (user-api, 시작한 브라우저에서만 가능)
        → 최근 1년 조제 내역
+       → 화면에 보여 주기 전에 POST /api/pill/catalog/match 로 약마다 카탈로그를 연결해 사진·[상세]를 붙인다
     3. [선택한 처방 저장]  POST /api/pill/prescriptions              (pill-api)
        → 이미 저장한 처방은 서버가 건너뛰고 "저장 n건 / 건너뜀 m건"을 알려 준다.
 
@@ -119,7 +120,7 @@ async function complete() {
     state.source = result.source;
     state.prescriptions = result.prescriptions;
     $('import-wait').hidden = true;
-    showResult();
+    await showResult();
   } catch (error) {
     showError(error);
     // 아직 승인 전(PRESCRIPTION_AUTH_NOT_APPROVED)이면 그대로 기다리고, 그 밖의 실패는 처음 화면으로
@@ -130,8 +131,9 @@ async function complete() {
 }
 
 /** 3단계 화면 : 처방마다 체크박스(기본 선택) + 약 목록 */
-function showResult() {
+async function showResult() {
   $('import-source').replaceChildren(...[sourceBadge(state.source)].filter(Boolean));
+  const matched = await matchCatalog(state.prescriptions);
   const list = $('import-list');
   list.replaceChildren(...state.prescriptions.map((rx, index) => el('li', { class: 'rx' },
     el('div', { class: 'rx-head' },
@@ -139,15 +141,36 @@ function showResult() {
         el('input', { type: 'checkbox', checked: true, 'data-index': index }), ' ',
         el('b', {}, formatDate(rx.dispensed_date)), ' ',
         [rx.prescriber, rx.pharmacy].filter(Boolean).join(' · '))),
-    el('ul', { class: 'rx-drugs' }, rx.drugs.map((drug) => renderDrug({
-      code: drug.drug_code, name: drug.name, ingredients: drug.ingredients,
-      oneDose: drug.one_dose, dailyDoses: drug.daily_doses, days: drug.total_dosing_days, effect: drug.effect,
-    }))))));
+    el('ul', { class: 'rx-drugs' }, rx.drugs.map((drug, drugIndex) => {
+      const pill = matched[index]?.[drugIndex]; // 연결된 카탈로그 약 (없으면 undefined/null)
+      return renderDrug({
+        code: drug.drug_code, name: drug.name, ingredients: drug.ingredients,
+        oneDose: drug.one_dose, dailyDoses: drug.daily_doses, days: drug.total_dosing_days, effect: drug.effect,
+        imageUrl: pill?.image_url, itemSeq: pill?.item_seq,
+      });
+    })))));
   if (state.prescriptions.length === 0) {
     list.append(el('li', { class: 'empty-text' }, '최근 1년 조제 내역이 없습니다.'));
   }
   $('import-result').hidden = false;
   $('import-form').hidden = false; // 다시 불러올 수 있게 폼도 보여 준다
+}
+
+/**
+ * 불러온 처방의 모든 약을 한 번에 카탈로그와 연결한다 (POST /api/pill/catalog/match)
+ * @returns {Promise<Array<Array<object|null>>>} 처방별·약별 연결 결과 (실패하면 빈 배열 → 사진·상세 없이 표시)
+ */
+async function matchCatalog(prescriptions) {
+  const drugs = prescriptions.flatMap((rx) => rx.drugs.map((d) => ({ drug_code: d.drug_code, name: d.name })));
+  if (drugs.length === 0) return [];
+  try {
+    const flat = await api.post('/api/pill/catalog/match', { drugs });
+    // 한 줄로 받은 결과를 다시 처방별로 나눈다
+    let position = 0;
+    return prescriptions.map((rx) => rx.drugs.map(() => flat[position++]));
+  } catch (error) {
+    return [];
+  }
 }
 
 /** 체크한 처방만 pill-api 에 저장 */
