@@ -4,6 +4,7 @@
      POST   /api/pill/pillbox       : 담기 (복용 시작일·종료일 지정)
      PATCH  /api/pill/pillbox/{id}  : 복용 기간·메모 수정
      DELETE /api/pill/pillbox/{id}  : 빼기
+     GET    /api/pill/pillbox/interactions : 병용금기 검사 (함께 먹으면 안 되는 약 쌍)
 
    [복용 상태] 서버가 오늘 날짜로 계산해서 준다 : TAKING 복용 중 / UPCOMING 복용 예정 / DONE 복용 완료
    회원 번호는 보내지 않는다. pill-api 가 SESSION 쿠키로 Redis 세션을 읽어 알아낸다.
@@ -17,8 +18,18 @@ import {
 
 const SOURCE_TEXT = { SEARCH: '검색에서 담음', PRESCRIPTION: '처방에서 담음' };
 
-/** 마지막으로 불러온 목록과 지금 고른 상태 필터 (필터는 화면에서만 거른다) */
-const state = { items: [], filter: 'ALL' };
+/**
+ * 마지막으로 불러온 목록, 지금 고른 상태 필터(화면에서만 거른다), 병용금기 검사 결과
+ *  checks : {약통 항목 id: 'CONFLICT' | 'CHECKED' | 'UNKNOWN'} (끝난 약은 검사하지 않아 없음)
+ */
+const state = { items: [], filter: 'ALL', pairs: [], checks: {} };
+
+/** 약마다 보여 줄 병용금기 검사 배지 */
+const CHECK_BADGE = {
+  CONFLICT: ['badge danger', '⚠ 병용금기'],
+  CHECKED: ['badge', '✓ 병용 확인'],
+  UNKNOWN: ['badge', '? 성분 정보 없음'],
+};
 
 /** 모달에서 담을 약 정보 (openAddDialog 가 채운다) */
 let pendingDrug = null;
@@ -89,10 +100,57 @@ async function submitAdd() {
 export async function loadPillbox() {
   try {
     state.items = await api.get('/api/pill/pillbox');
-    render();
   } catch (error) {
     showError(error);
+    return;
   }
+  // 병용금기 검사는 실패해도 약통 목록은 보여 준다 (검사 결과만 비워 둠)
+  try {
+    const result = await api.get('/api/pill/pillbox/interactions');
+    state.pairs = result.pairs;
+    state.checks = Object.fromEntries(result.items.map((i) => [i.id, i.check]));
+  } catch (error) {
+    state.pairs = [];
+    state.checks = {};
+  }
+  renderDurAlert();
+  render();
+}
+
+/**
+ * 병용금기 검사 결과 배너
+ *  - 금기 쌍이 있으면 : 약 쌍, 성분, 사유, 함께 먹게 되는 기간
+ *  - 없으면 : 검사한 약 수 (성분을 몰라 검사하지 못한 약 수도 알려 준다)
+ */
+function renderDurAlert() {
+  const box = $('dur-alert');
+  const checks = Object.values(state.checks);
+  if (checks.length === 0) {
+    box.hidden = true;
+    return;
+  }
+  const notice = el('div', { class: 'dur-sub-text' },
+    '심평원 DUR(의약품안전사용서비스) 병용금기 정보를 바탕으로 한 안내입니다. 복용을 바꾸기 전에 의사·약사와 상담하세요.');
+  const unknown = checks.filter((c) => c === 'UNKNOWN').length;
+  if (state.pairs.length > 0) {
+    box.className = 'dur-alert danger';
+    box.replaceChildren(
+      el('div', { class: 'dur-title' }, `⚠ 함께 먹으면 안 되는 약이 ${state.pairs.length}쌍 있습니다`),
+      el('ul', {}, state.pairs.map((p) => el('li', {},
+        el('b', {}, `${p.item_a.drug_name} × ${p.item_b.drug_name}`),
+        el('div', {}, p.detail || '병용금기'),
+        el('div', { class: 'dur-sub-text' },
+          `${p.ingredient_a} × ${p.ingredient_b} · ${formatDate(p.overlap_start)} ~ ${formatDate(p.overlap_end)} 함께 복용`)))),
+      notice);
+  } else {
+    box.className = 'dur-alert ok';
+    box.replaceChildren(
+      el('div', { class: 'dur-title' },
+        `✓ 복용 중·예정인 약 ${checks.length - unknown}개를 검사했고, 함께 먹으면 안 되는 조합이 없습니다`
+        + (unknown ? ` (성분 정보가 없는 약 ${unknown}개는 검사하지 못했습니다)` : '')),
+      notice);
+  }
+  box.hidden = false;
 }
 
 /** 현재 필터에 맞는 항목만 그린다 */
@@ -133,7 +191,8 @@ function renderItem(item) {
   return el('li', { class: `item ${item.status === 'DONE' ? 'done' : ''}` },
     pillImage(item.image_url, item.drug_name),
     el('div', { class: 'body' },
-      el('div', { class: 'title' }, statusBadge(item.status), ' ', item.drug_name, otcBadge(item.etc_otc)),
+      el('div', { class: 'title' }, statusBadge(item.status), ' ', item.drug_name, otcBadge(item.etc_otc),
+        checkBadge(state.checks[item.id])),
       el('div', { class: 'period' }, periodText(item)),
       el('div', { class: 'meta' },
         [item.memo, item.entp_name, SOURCE_TEXT[item.source]].filter(Boolean).join(' · '),
@@ -155,6 +214,13 @@ function renderItem(item) {
         type: 'button', class: 'btn small danger',
         onclick: (event) => withBusy(event.currentTarget, () => removeItem(item)),
       }, '빼기')));
+}
+
+/** 병용금기 검사 배지 (끝난 약은 검사하지 않으므로 없음) */
+function checkBadge(check) {
+  if (!check) return null;
+  const [className, text] = CHECK_BADGE[check];
+  return el('span', { class: className }, text);
 }
 
 /** 복용 기간·메모 저장 : PATCH /api/pill/pillbox/{id} */

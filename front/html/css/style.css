@@ -86,6 +86,15 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .modal .form { margin: 0; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; }
 .modal-head h2 { margin: 0; }
+/* 병용금기 검사 결과 배너 */
+.dur-alert { border-radius: var(--radius); padding: 12px 14px; margin: 8px 0 12px; }
+.dur-alert.danger { background: #fdecec; border: 1px solid #f3b9b9; }
+.dur-alert.ok { background: #e7f6ee; border: 1px solid #b7e2c8; }
+.dur-alert .dur-title { font-weight: 700; }
+.dur-alert ul { margin: 8px 0 0; padding-left: 18px; }
+.dur-alert li { margin: 4px 0; }
+.dur-alert .dur-sub-text { color: var(--muted); font-size: 0.85rem; }
+.badge.danger { background: #fdecec; color: var(--danger); }
 /* 상태 필터·빠른 기간 선택 칩 */
 .filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .chip { font: inherit; font-size: 0.85rem; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 12px; cursor: pointer; }
