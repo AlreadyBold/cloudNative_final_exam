@@ -10,7 +10,8 @@
        → 최근 1년 조제 내역
        → 화면에 보여 주기 전에 POST /api/pill/catalog/match 로 약마다 카탈로그를 연결해 사진·[상세]를 붙인다
     3. [선택한 처방을 약통에 담기]  POST /api/pill/pillbox/prescriptions   (pill-api)
-       → 처방마다 복용 기간 = 조제일 ~ 조제일 + (가장 긴 투약일수 - 1). 같은 약·같은 시작일은 서버가 건너뛴다.
+       → 약마다 복용 기간을 따로 정한다. 기본값 = 조제일 ~ 조제일 + (그 약의 투약일수 - 1), 화면에서 고칠 수 있다.
+         같은 약·같은 시작일은 서버가 건너뛴다.
 
    [개인정보 보호]
     - 주민등록번호 뒷자리는 비밀번호 입력칸이라 ●로 가려진다. 휴대폰 번호는 입력 중 자동으로 하이픈이 붙는다.
@@ -22,8 +23,8 @@
 import { api } from './api.js';
 import { toggleDetail } from './detail.js';
 import {
-  $, addDays, el, formValues, formatDate, formatPhoneInput, maskIdentity, maskName, maskPhone, pillImage, showError, toast,
-  withBusy,
+  $, addDays, el, formValues, formatDate, formatPhoneInput, maskIdentity, maskName, maskPhone, pillImage, showError,
+  statusBadge, toast, todayString, withBusy,
 } from './ui.js';
 
 /** 진행 중인 불러오기 상태 */
@@ -142,13 +143,13 @@ async function showResult() {
         el('input', { type: 'checkbox', checked: true, 'data-index': index }), ' ',
         el('b', {}, formatDate(rx.dispensed_date)), ' ',
         [rx.prescriber, rx.pharmacy].filter(Boolean).join(' · '))),
-    el('div', { class: 'period' }, periodText(rx)),
     el('ul', { class: 'rx-drugs' }, rx.drugs.map((drug, drugIndex) => {
       const pill = matched[index]?.[drugIndex]; // 연결된 카탈로그 약 (없으면 undefined/null)
       return renderDrug({
         code: drug.drug_code, name: drug.name, ingredients: drug.ingredients,
         oneDose: drug.one_dose, dailyDoses: drug.daily_doses, days: drug.total_dosing_days, effect: drug.effect,
         imageUrl: pill?.image_url, itemSeq: pill?.item_seq,
+        period: periodEditor(rx, drug, index, drugIndex),
       });
     })))));
   if (state.prescriptions.length === 0) {
@@ -182,7 +183,8 @@ function sourceBadge(source) {
 
 /**
  * 불러온 처방 안의 약 한 줄 (사진 + 이름 + 성분·약효·복용법 + [상세])
- * @param {object} d {name, ingredients, oneDose, dailyDoses, days, effect, imageUrl, itemSeq}
+ * @param {object} d {name, ingredients, oneDose, dailyDoses, days, effect, imageUrl, itemSeq, period}
+ *   period : 복용 기간 입력칸 (periodEditor)
  *   itemSeq : 카탈로그와 연결된 약 ID. 있으면 [상세] 버튼(성분·성상·DUR)을 붙이고, 없으면 "카탈로그 미연결" 표시
  */
 function renderDrug(d) {
@@ -200,6 +202,7 @@ function renderDrug(d) {
       el('div', { class: 'title' }, d.name),
       el('div', { class: 'meta' }, [d.ingredients, d.effect, dosage].filter(Boolean).join(' · ')),
       d.itemSeq ? null : el('span', { class: 'badge warn' }, '카탈로그 미연결'),
+      d.period,
       detailBox),
     d.itemSeq ? el('div', { class: 'actions' },
       el('button', {
@@ -209,19 +212,47 @@ function renderDrug(d) {
 }
 
 /**
- * 처방 1건의 복용 기간 안내 (서버와 같은 규칙) : 조제일 ~ 조제일 + (가장 긴 투약일수 - 1)
- * 예) 2026-09-29, 약이 5일·7일 → "복용 기간 2026-09-29 ~ 2026-10-05 (7일, 가장 긴 처방 기준)"
+ * 약 1개의 복용 기간 입력칸 : 기본값 = 조제일 ~ 조제일 + (그 약의 투약일수 - 1) (서버 기본값과 같은 규칙)
+ * 예) 조제일 11-03, 투약 7일 → 11-03 ~ 11-09. 고치면 옆의 상태(복용 완료·중·예정)가 바로 바뀐다.
+ * 입력칸에 처방·약 순번(data-rx, data-drug)을 달아 두고, 담을 때 그 값을 읽는다.
  */
-function periodText(rx) {
-  const days = Math.max(1, ...rx.drugs.map((d) => parseInt(d.total_dosing_days, 10) || 1));
-  if (!rx.dispensed_date) return `복용 기간 ${days}일 (가장 긴 처방 기준)`;
-  return `복용 기간 ${rx.dispensed_date} ~ ${addDays(rx.dispensed_date, days - 1)} (${days}일, 가장 긴 처방 기준)`;
+function periodEditor(rx, drug, rxIndex, drugIndex) {
+  const days = Math.max(1, parseInt(drug.total_dosing_days, 10) || 1);
+  const start = rx.dispensed_date || todayString();
+  const attrs = { type: 'date', 'data-rx': rxIndex, 'data-drug': drugIndex };
+  const startInput = el('input', { ...attrs, name: 'start', value: start, 'aria-label': '복용 시작일' });
+  const endInput = el('input', { ...attrs, name: 'end', value: addDays(start, days - 1), 'aria-label': '복용 종료일' });
+  const status = el('span');
+  const refresh = () => status.replaceChildren(statusBadge(statusOf(startInput.value, endInput.value)));
+  startInput.addEventListener('change', refresh);
+  endInput.addEventListener('change', refresh);
+  refresh();
+  return el('div', { class: 'row edit-row' }, el('span', { class: 'hint' }, '복용 기간'), startInput, '~', endInput, status);
+}
+
+/** 오늘 날짜로 본 상태 (서버와 같은 규칙) : 시작 전 UPCOMING / 기간 안 TAKING / 끝남 DONE */
+function statusOf(start, end) {
+  const today = todayString();
+  if (start > today) return 'UPCOMING';
+  if (end < today) return 'DONE';
+  return 'TAKING';
 }
 
 /** 체크한 처방을 약통에 담기 */
 async function saveSelected() {
+  // 체크한 처방만, 약마다 화면에서 정한 복용 기간을 붙여서 보낸다
+  const dateOf = (rxIndex, drugIndex, name) =>
+    document.querySelector(`#import-list input[name=${name}][data-rx="${rxIndex}"][data-drug="${drugIndex}"]`).value;
   const checked = [...document.querySelectorAll('#import-list input[type=checkbox]:checked')]
-    .map((box) => state.prescriptions[Number(box.dataset.index)]);
+    .map((box) => Number(box.dataset.index))
+    .map((rxIndex) => ({
+      ...state.prescriptions[rxIndex],
+      drugs: state.prescriptions[rxIndex].drugs.map((drug, drugIndex) => ({
+        ...drug,
+        start_date: dateOf(rxIndex, drugIndex, 'start'),
+        end_date: dateOf(rxIndex, drugIndex, 'end'),
+      })),
+    }));
   if (checked.length === 0) {
     toast('약통에 담을 처방을 선택해 주세요.', true);
     return;

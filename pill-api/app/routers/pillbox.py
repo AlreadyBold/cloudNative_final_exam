@@ -13,9 +13,10 @@
   종료일 < 오늘           → DONE     (복용 완료)
   "오늘"은 DB 서버의 날짜(CURDATE(), 한국 시간 +09:00)를 써서 어느 컨테이너가 계산해도 같다.
 
-[처방에서 담을 때의 복용 기간]
-  처방 1건 안의 약은 모두 같은 기간 : 조제일 ~ 조제일 + (그 처방에서 가장 긴 투약일수 - 1)
-  예) 2026-09-29 조제, 약이 5일·7일 → 모든 약 2026-09-29 ~ 2026-10-05 (7일)
+[처방에서 담을 때의 복용 기간] 약마다 따로 정한다
+  기본값 : 조제일 ~ 조제일 + (그 약의 투약일수 - 1)
+  예) 2026-09-29 조제, A 약 5일·B 약 7일 → A 2026-09-29 ~ 10-03, B 2026-09-29 ~ 10-05
+  화면에서 약마다 시작일·종료일을 고쳐서 보내면 그 값을 쓴다.
 
 회원 번호(user_id)는 요청 본문이 아니라 "세션"에서 가져온다. 그래서 다른 사람의 약통은 볼 수도, 고칠 수도 없다.
 """
@@ -171,6 +172,15 @@ class PrescriptionDrug(BaseModel):
     daily_doses: Optional[str] = Field(None, max_length=20)
     total_dosing_days: Optional[str] = Field(None, max_length=20)
     effect: Optional[str] = Field(None, max_length=200)
+    # 화면에서 고친 복용 기간 (보내지 않으면 조제일과 투약일수로 계산)
+    start_date: Optional[datetime.date] = None
+    end_date: Optional[datetime.date] = None
+
+    @model_validator(mode="after")
+    def check_period(self):
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError(f"{self.name} : 복용 종료일은 시작일보다 빠를 수 없습니다.")
+        return self
 
 
 class Prescription(BaseModel):
@@ -195,11 +205,16 @@ def dosing_days(value):
         return 1
 
 
-def prescription_period(prescription):
-    """처방 1건의 복용 기간 : 조제일(없으면 오늘)부터 가장 긴 투약일수만큼"""
-    start = prescription.dispensed_date or datetime.date.today()
-    days = max(dosing_days(d.total_dosing_days) for d in prescription.drugs)
-    return start, start + datetime.timedelta(days=days - 1)
+def drug_period(prescription, drug):
+    """
+    약 1개의 복용 기간. 화면에서 고친 값이 있으면 그 값을, 없으면
+    조제일(없으면 오늘) ~ 조제일 + (그 약의 투약일수 - 1)
+    """
+    start = drug.start_date or prescription.dispensed_date or datetime.date.today()
+    end = drug.end_date or start + datetime.timedelta(days=dosing_days(drug.total_dosing_days) - 1)
+    if end < start or (end - start).days > MAX_PERIOD_DAYS:
+        raise BusinessError(ErrorCode.COMMON_INVALID_INPUT, f"{drug.name} : 복용 기간이 올바르지 않습니다.")
+    return start, end
 
 
 @router.post("/prescriptions", status_code=201)
@@ -211,8 +226,8 @@ def add_prescriptions(body: PrescriptionsRequest, user: LoginUser = Depends(logi
     saved = skipped = 0
     with engine.begin() as conn:
         for prescription in body.prescriptions:
-            start, end = prescription_period(prescription)
             for drug in prescription.drugs:
+                start, end = drug_period(prescription, drug)
                 # 보험코드 → 약품명 순으로 카탈로그 약을 찾아 연결 (못 찾으면 NULL, 처방 정보만 보관)
                 item_seq = match_catalog(conn, drug.drug_code, drug.name)
                 if is_duplicate(conn, user.user_id, item_seq, drug.drug_code, drug.name, start):
@@ -226,7 +241,8 @@ def add_prescriptions(body: PrescriptionsRequest, user: LoginUser = Depends(logi
                     VALUES (:user_id, :item_seq, :drug_code, :name, :start, :end, 'PRESCRIPTION',
                             :dispensed_date, :prescriber, :pharmacy, :ingredients, :one_dose, :daily_doses,
                             :total_dosing_days, :effect, :data_source)
-                """), {**drug.model_dump(), "user_id": user.user_id, "item_seq": item_seq, "start": start, "end": end,
+                """), {**drug.model_dump(exclude={"start_date", "end_date"}), "user_id": user.user_id,
+                       "item_seq": item_seq, "start": start, "end": end,
                        "dispensed_date": prescription.dispensed_date, "prescriber": prescription.prescriber,
                        "pharmacy": prescription.pharmacy, "data_source": body.source})
                 saved += 1
