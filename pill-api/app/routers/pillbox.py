@@ -3,6 +3,7 @@
   GET    /api/pill/pillbox       : 목록 (복용 상태 포함 : 복용 중 → 복용 예정 → 복용 완료 순)
   POST   /api/pill/pillbox       : 담기 (약 검색 결과 또는 처방내역에서, 복용 시작일·종료일 지정)
   POST   /api/pill/pillbox/prescriptions : 불러온 처방을 한 번에 담기 (복용 기간은 처방으로 계산)
+  GET    /api/pill/pillbox/interactions  : 병용금기 검사 (함께 먹으면 안 되는 약 쌍)
   PATCH  /api/pill/pillbox/{id}  : 복용 기간·메모 수정
   DELETE /api/pill/pillbox/{id}  : 빼기
 
@@ -23,7 +24,7 @@ from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from app.db import engine, rows_to_dicts
 from app.errors import BusinessError, ErrorCode, ok
@@ -230,6 +231,97 @@ def add_prescriptions(body: PrescriptionsRequest, user: LoginUser = Depends(logi
                        "pharmacy": prescription.pharmacy, "data_source": body.source})
                 saved += 1
     return ok({"saved_count": saved, "skipped_count": skipped})
+
+
+def dur_key(ingredient_code):
+    """성분코드 9자리 → 병용금기 비교 키 (성분 4자리 + 투여경로 1자리). 예) 111501ATB → 1115A"""
+    return ingredient_code[:4] + ingredient_code[6:7]
+
+
+@router.get("/interactions")
+def interactions(user: LoginUser = Depends(login_required)):
+    """
+    병용금기 검사 : 아직 끝나지 않은 약(복용 중·복용 예정) 중 복용 기간이 겹치는 두 약이
+    DUR 병용금기 성분 쌍에 해당하는지 본다. (끝난 약과는 함께 먹는 게 아니므로 검사하지 않는다)
+
+    [약의 성분 찾기]
+      카탈로그와 연결된 약 : pill_ingredient (보험코드로 찾은 성분 + 표준코드의 일반명코드)
+      보험코드가 있는 약   : dur_ingredient (처방에만 있고 카탈로그와 연결되지 않은 약도 검사)
+    [비교] 성분코드를 "성분 4자리 + 투여경로 1자리" 키로 바꿔 dur_combination 에서 찾는다.
+
+    응답 예)
+      {"pairs": [{"item_a": {...}, "item_b": {...}, "ingredient_a": "atorvastatin ...",
+                  "ingredient_b": "itraconazole", "detail": "근육병증 ...",
+                  "overlap_start": "2026-11-10", "overlap_end": "2026-11-16"}],
+       "items": [{"id": 3, "check": "CONFLICT"}, ...]}   ← CONFLICT 병용금기 / CHECKED 확인됨 / UNKNOWN 성분 정보 없음
+    """
+    with engine.connect() as conn:
+        items = rows_to_dicts(conn.execute(text("""
+            SELECT id, item_seq, drug_code, drug_name, start_date, end_date
+            FROM pillbox_items
+            WHERE user_id = :user_id AND end_date >= CURDATE()
+            ORDER BY start_date, id
+        """), {"user_id": user.user_id}))
+
+        # 약마다 성분·경로 키 모으기
+        keys = {item["id"]: set() for item in items}
+        seqs = sorted({i["item_seq"] for i in items if i["item_seq"]})
+        if seqs:
+            rows = conn.execute(text("SELECT item_seq, ingredient_code FROM pill_ingredient WHERE item_seq IN :seqs")
+                                .bindparams(bindparam("seqs", expanding=True)), {"seqs": seqs}).all()
+            by_seq = {}
+            for seq, code in rows:
+                by_seq.setdefault(seq, set()).add(dur_key(code))
+            for item in items:
+                keys[item["id"]] |= by_seq.get(item["item_seq"], set())
+        codes = sorted({i["drug_code"] for i in items if i["drug_code"]})
+        if codes:
+            rows = conn.execute(text("SELECT edi_code, ingredient_code FROM dur_ingredient WHERE edi_code IN :codes")
+                                .bindparams(bindparam("codes", expanding=True)), {"codes": codes}).all()
+            by_code = {edi: dur_key(code) for edi, code in rows}
+            for item in items:
+                if item["drug_code"] in by_code:
+                    keys[item["id"]].add(by_code[item["drug_code"]])
+
+        # 내 약들의 키 사이에 있는 병용금기 쌍만 가져온다
+        all_keys = sorted(set().union(*keys.values())) if keys else []
+        combos = {}
+        if all_keys:
+            rows = rows_to_dicts(conn.execute(text("""
+                SELECT ingredient_key_a, ingredient_key_b, ingredient_name_a, ingredient_name_b, detail
+                FROM dur_combination
+                WHERE ingredient_key_a IN :keys AND ingredient_key_b IN :keys
+            """).bindparams(bindparam("keys", expanding=True)), {"keys": all_keys}))
+            combos = {(r["ingredient_key_a"], r["ingredient_key_b"]): r for r in rows}
+
+    # 기간이 겹치는 두 약마다 성분 키 쌍을 비교
+    pairs, conflict_ids = [], set()
+    for index, a in enumerate(items):
+        for b in items[index + 1:]:
+            if a["start_date"] > b["end_date"] or b["start_date"] > a["end_date"]:
+                continue  # 복용 기간이 겹치지 않음
+            found = set()
+            for key_a in keys[a["id"]]:
+                for key_b in keys[b["id"]]:
+                    combo = combos.get(tuple(sorted((key_a, key_b))))
+                    if combo is None or (combo["ingredient_key_a"], combo["ingredient_key_b"]) in found:
+                        continue
+                    found.add((combo["ingredient_key_a"], combo["ingredient_key_b"]))
+                    a_first = combo["ingredient_key_a"] == key_a
+                    pairs.append({
+                        "item_a": {"id": a["id"], "drug_name": a["drug_name"]},
+                        "item_b": {"id": b["id"], "drug_name": b["drug_name"]},
+                        "ingredient_a": combo["ingredient_name_a"] if a_first else combo["ingredient_name_b"],
+                        "ingredient_b": combo["ingredient_name_b"] if a_first else combo["ingredient_name_a"],
+                        "detail": combo["detail"],
+                        "overlap_start": max(a["start_date"], b["start_date"]),
+                        "overlap_end": min(a["end_date"], b["end_date"]),
+                    })
+                    conflict_ids.update((a["id"], b["id"]))
+
+    checks = [{"id": i["id"], "check": "CONFLICT" if i["id"] in conflict_ids
+               else ("CHECKED" if keys[i["id"]] else "UNKNOWN")} for i in items]
+    return ok({"pairs": pairs, "items": checks})
 
 
 @router.patch("/{item_id}")
