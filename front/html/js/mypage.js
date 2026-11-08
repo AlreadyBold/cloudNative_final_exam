@@ -68,7 +68,7 @@ export function initMyPage(onNicknameChanged, onWithdrawn) {
 /**
  * 회원 탈퇴 순서
  *  1) 비밀번호 확인 : 같은 이메일·비밀번호로 로그인 API 를 불러 본다 (틀리면 여기서 멈춰서 데이터가 지워지지 않는다)
- *  2) pill-api 의 내 약통·저장한 처방 삭제 (회원 정보와 다른 서버·DB 에 있으므로 따로 지운다)
+ *  2) pill-api 의 내 약통 삭제 (회원 정보와 다른 서버·DB 에 있으므로 따로 지운다)
  *  3) user-api 의 회원 삭제 + 세션 무효화 (세션이 사라지면 pill-api 를 부를 수 없으므로 마지막에)
  */
 async function withdraw(password) {

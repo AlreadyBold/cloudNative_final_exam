@@ -26,8 +26,6 @@ class ErrorCode(Enum):
     PILLBOX_ITEM_NOT_FOUND = (404, "내 약통에서 약을 찾을 수 없습니다.")
     PILLBOX_DUPLICATE = (409, "같은 날부터 먹는 같은 약이 이미 약통에 있습니다.")
 
-    # ----- 저장한 처방내역 -----
-    PRESCRIPTION_NOT_FOUND = (404, "저장한 처방내역을 찾을 수 없습니다.")
 
     @property
     def status(self):

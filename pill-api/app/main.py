@@ -1,7 +1,7 @@
 """
 alyak-pill-api 시작점 (FastAPI)
 
-담당 기능 : 약 카탈로그 검색·상세, 내 약통, 저장한 처방내역
+담당 기능 : 약 카탈로그 검색·상세, 내 약통 (불러온 처방도 약통에 담는다)
 로그인    : 직접 하지 않는다. user-api(Spring) 가 Redis 에 저장한 세션을 읽어서 로그인 사용자를 안다 (app/session.py)
 실행      : uvicorn app.main:app --host 0.0.0.0 --port 8000   (Dockerfile.pill-api 의 CMD)
 API 문서  : /api/pill/docs  (FastAPI 가 자동으로 만들어 주는 Swagger 화면)
@@ -15,13 +15,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import config
 from app.errors import BusinessError, ErrorCode, fail
-from app.routers import catalog, me, pillbox, prescriptions
+from app.routers import catalog, me, pillbox
 
 log = logging.getLogger("alyak-pill-api")
 
 app = FastAPI(
     title="내약통한눈에 pill-api",
-    description="약 카탈로그 · 내 약통 · 저장한 처방내역 (로그인은 user-api 의 Redis 세션 공유)",
+    description="약 카탈로그 · 내 약통 (로그인은 user-api 의 Redis 세션 공유)",
     # 프록시를 거쳐도 열리도록 문서 주소를 /api/pill 아래로
     docs_url="/api/pill/docs",
     openapi_url="/api/pill/openapi.json",
@@ -31,7 +31,6 @@ app = FastAPI(
 app.include_router(me.router)
 app.include_router(catalog.router)
 app.include_router(pillbox.router)
-app.include_router(prescriptions.router)
 
 
 @app.middleware("http")

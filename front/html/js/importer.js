@@ -20,9 +20,10 @@
       끝나면 바로 지운다. (localStorage 등 브라우저 저장소에는 절대 넣지 않는다)
    ===================================================================== */
 import { api } from './api.js';
-import { renderDrug, sourceBadge } from './saved.js';
+import { toggleDetail } from './detail.js';
 import {
-  $, addDays, el, formValues, formatDate, formatPhoneInput, maskIdentity, maskName, maskPhone, showError, toast, withBusy,
+  $, addDays, el, formValues, formatDate, formatPhoneInput, maskIdentity, maskName, maskPhone, pillImage, showError, toast,
+  withBusy,
 } from './ui.js';
 
 /** 진행 중인 불러오기 상태 */
@@ -172,6 +173,39 @@ async function matchCatalog(prescriptions) {
   } catch (error) {
     return [];
   }
+}
+
+/** 데이터 출처 배지 : MOCK(CODEF 키 없이 돌려준 샘플)이면 표시 */
+function sourceBadge(source) {
+  return source === 'MOCK' ? el('span', { class: 'badge warn' }, '샘플 데이터') : null;
+}
+
+/**
+ * 불러온 처방 안의 약 한 줄 (사진 + 이름 + 성분·약효·복용법 + [상세])
+ * @param {object} d {name, ingredients, oneDose, dailyDoses, days, effect, imageUrl, itemSeq}
+ *   itemSeq : 카탈로그와 연결된 약 ID. 있으면 [상세] 버튼(성분·성상·DUR)을 붙이고, 없으면 "카탈로그 미연결" 표시
+ */
+function renderDrug(d) {
+  // "1회 1 · 하루 3번 · 5일" 처럼 복용법을 한 줄로
+  const dosage = [
+    d.oneDose && `1회 ${d.oneDose}`,
+    d.dailyDoses && `하루 ${d.dailyDoses}번`,
+    d.days && `${d.days}일`,
+  ].filter(Boolean).join(' · ');
+  const detailBox = el('div', { class: 'detail', hidden: true });
+
+  return el('li', { class: 'item' },
+    pillImage(d.imageUrl, d.name),
+    el('div', { class: 'body' },
+      el('div', { class: 'title' }, d.name),
+      el('div', { class: 'meta' }, [d.ingredients, d.effect, dosage].filter(Boolean).join(' · ')),
+      d.itemSeq ? null : el('span', { class: 'badge warn' }, '카탈로그 미연결'),
+      detailBox),
+    d.itemSeq ? el('div', { class: 'actions' },
+      el('button', {
+        type: 'button', class: 'btn small',
+        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(d.itemSeq, detailBox)),
+      }, '상세')) : null);
 }
 
 /**

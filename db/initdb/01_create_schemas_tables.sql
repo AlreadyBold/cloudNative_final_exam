@@ -9,7 +9,7 @@
 --
 -- [서비스별 스키마 분리]
 --  alyak_user : user-api(Spring Boot) 전용 - 회원 정보
---  alyak_pill : pill-api(FastAPI)     전용 - 약 카탈로그, 내 약통, 저장한 처방내역
+--  alyak_pill : pill-api(FastAPI)     전용 - 약 카탈로그, 내 약통
 --  같은 MySQL 컨테이너를 쓰지만 계정과 권한을 나눠서
 --  각 서버는 자기 스키마에만 접근할 수 있다 (마이크로서비스의 "서비스별 DB" 원칙).
 --  계정은 비밀번호를 환경변수로 받아야 하므로 02_create_accounts.sh 가 만든다.
@@ -159,37 +159,3 @@ CREATE TABLE IF NOT EXISTS alyak_pill.pillbox_items (
   PRIMARY KEY (id),
   KEY idx_pillbox_items_user (user_id, end_date)
 ) ENGINE = InnoDB COMMENT = '내 약통';
-
--- 저장한 처방내역 (조제 1건 = 1행)
---  - 간편인증으로 불러온 처방내역 중 사용자가 "저장"을 누른 것만 보관한다.
-CREATE TABLE IF NOT EXISTS alyak_pill.saved_prescriptions (
-  id             BIGINT       NOT NULL AUTO_INCREMENT,
-  user_id        BIGINT       NOT NULL COMMENT '회원 번호 (alyak_user.users.id)',
-  dispensed_date DATE             NULL COMMENT '조제일',
-  pharmacy       VARCHAR(100)     NULL COMMENT '조제기관(약국)',
-  prescriber     VARCHAR(100)     NULL COMMENT '처방기관(병원)',
-  data_source    VARCHAR(10)  NOT NULL COMMENT '불러온 방식 (CODEF: 실제 조회, MOCK: 샘플 데이터)',
-  created_at     DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '저장 시각',
-  PRIMARY KEY (id),
-  KEY idx_saved_prescriptions_user (user_id, dispensed_date)
-) ENGINE = InnoDB COMMENT = '저장한 처방내역';
-
--- 저장한 처방내역에 들어 있는 약 (처방 1건에 약 여러 개)
-CREATE TABLE IF NOT EXISTS alyak_pill.saved_prescription_drugs (
-  id                BIGINT        NOT NULL AUTO_INCREMENT,
-  prescription_id   BIGINT        NOT NULL COMMENT '소속 처방 (saved_prescriptions.id)',
-  drug_code         VARCHAR(20)       NULL COMMENT '보험 약품코드',
-  drug_name         VARCHAR(500)  NOT NULL COMMENT '약품명',
-  ingredients       VARCHAR(1000)     NULL COMMENT '성분명',
-  one_dose          VARCHAR(20)       NULL COMMENT '1회 투약량',
-  daily_doses       VARCHAR(20)       NULL COMMENT '1일 투여횟수',
-  total_dosing_days VARCHAR(20)       NULL COMMENT '총 투약일수',
-  effect            VARCHAR(200)      NULL COMMENT '약효',
-  formula           VARCHAR(500)      NULL COMMENT '성상 (예: 흰색의 원형 정제)',
-  item_seq          VARCHAR(20)       NULL COMMENT '보험코드로 찾은 카탈로그 약 ID (없으면 NULL)',
-  PRIMARY KEY (id),
-  KEY idx_saved_prescription_drugs_prescription (prescription_id),
-  -- 처방 1건을 지우면 그 안의 약도 같이 지워진다 (같은 서비스 안의 테이블이므로 FK 사용)
-  CONSTRAINT fk_saved_prescription_drugs_prescription
-    FOREIGN KEY (prescription_id) REFERENCES alyak_pill.saved_prescriptions (id) ON DELETE CASCADE
-) ENGINE = InnoDB COMMENT = '저장한 처방내역의 약';

@@ -9,7 +9,6 @@ import { initAuth, logout, restoreSession, session } from './auth.js';
 import { initImporter } from './importer.js';
 import { initMyPage, loadMyPage } from './mypage.js';
 import { initPillbox, loadPillbox } from './pillbox.js';
-import { loadSaved } from './saved.js';
 import { initSearch } from './search.js';
 import { initSession } from './session.js';
 import { $, toast } from './ui.js';
@@ -17,7 +16,6 @@ import { $, toast } from './ui.js';
 /** 탭을 열 때 부를 데이터 불러오기 함수 (목록이 항상 최신이 되도록 열 때마다 새로 부른다) */
 const TAB_LOADERS = {
   pillbox: loadPillbox,
-  saved: loadSaved,
   mypage: loadMyPage,
 };
 
@@ -51,7 +49,7 @@ function openTab(name) {
 /** 페이지가 열리면 한 번 실행 */
 async function start() {
   // 각 화면의 버튼·폼 이벤트 연결
-  initAuth(() => { showApp(); openTab('search'); });
+  initAuth(() => { showApp(); openTab('pillbox'); });
   initSearch();
   initPillbox();
   initImporter();
@@ -79,7 +77,7 @@ async function start() {
   // 새로고침해도 SESSION 쿠키가 살아 있으면 로그인 상태로 시작
   if (await restoreSession()) {
     showApp();
-    openTab('search');
+    openTab('pillbox');
   } else {
     showAuth();
   }
