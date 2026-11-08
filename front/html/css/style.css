@@ -90,6 +90,8 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .dur-alert { border-radius: var(--radius); padding: 12px 14px; margin: 8px 0 12px; }
 .dur-alert.danger { background: #fdecec; border: 1px solid #f3b9b9; }
 .dur-alert.ok { background: #e7f6ee; border: 1px solid #b7e2c8; }
+.dur-alert.warn { background: var(--warn-bg); border: 1px solid #f5d29a; }
+.dur-alert.info { background: #eef4fd; border: 1px solid #c9daf6; }
 .dur-alert .dur-title { font-weight: 700; }
 .dur-alert ul { margin: 8px 0 0; padding-left: 18px; }
 .dur-alert li { margin: 4px 0; }
