@@ -15,6 +15,7 @@ class ErrorCode(Enum):
     COMMON_INVALID_INPUT = (400, "요청 값이 올바르지 않습니다.")
     COMMON_UNAUTHORIZED = (401, "로그인이 필요합니다.")
     AUTH_SESSION_REPLACED = (401, "다른 기기에서 로그인되어 로그아웃되었습니다.")
+    AUTH_PASSWORD_RESET = (401, "관리자가 비밀번호를 초기화해서 로그아웃되었습니다. 초기화된 비밀번호로 다시 로그인해 주세요.")
     COMMON_NOT_FOUND = (404, "요청한 주소를 찾을 수 없습니다.")
     COMMON_METHOD_NOT_ALLOWED = (405, "지원하지 않는 HTTP 메서드입니다.")
     COMMON_INTERNAL_ERROR = (500, "서버 오류가 발생했습니다.")

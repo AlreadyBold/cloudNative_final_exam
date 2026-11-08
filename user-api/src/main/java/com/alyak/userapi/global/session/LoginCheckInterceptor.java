@@ -40,9 +40,10 @@ public class LoginCheckInterceptor implements HandlerInterceptor {
 		}
 
 		// 로그인하지 않았으면 401 + 공통 응답 형식으로 거절
-		// 쿠키의 세션이 "다른 기기 로그인으로 끊긴 세션"이면 그 이유를 알려 준다 (중복 로그인 방지)
-		ErrorCode errorCode = loginSessionRegistry.wasReplaced(request.getRequestedSessionId())
-			? ErrorCode.AUTH_SESSION_REPLACED
+		// 쿠키의 세션이 강제로 끊긴 세션이면 그 이유를 알려 준다 (다른 기기 로그인 / 비밀번호 초기화)
+		String reason = loginSessionRegistry.endReason(request.getRequestedSessionId());
+		ErrorCode errorCode = LoginSessionRegistry.REASON_REPLACED.equals(reason) ? ErrorCode.AUTH_SESSION_REPLACED
+			: LoginSessionRegistry.REASON_PASSWORD_RESET.equals(reason) ? ErrorCode.AUTH_PASSWORD_RESET
 			: ErrorCode.COMMON_UNAUTHORIZED;
 		response.setStatus(errorCode.getStatus().value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);

@@ -92,6 +92,12 @@ export function initAuth(onLoggedIn) {
    5초마다(그리고 탭으로 돌아올 때) GET /api/user/session/status 로 확인한다.
    이 API 는 세션을 열지 않아서 30분 만료 시간을 연장하지 않는다. */
 const WATCH_INTERVAL_MS = 5000;
+/** 세션이 끊긴 이유별 안내 (서버의 status 값과 짝) */
+const SESSION_END_MESSAGES = {
+  REPLACED: '다른 기기에서 로그인되어 로그아웃되었습니다.',
+  PASSWORD_RESET: '관리자가 비밀번호를 초기화해서 로그아웃되었습니다. 초기화된 비밀번호로 다시 로그인해 주세요.',
+  NONE: '로그인이 만료되었습니다. 다시 로그인해 주세요.',
+};
 let watchTimer = null;
 let onSessionEnded = () => {};
 
@@ -128,9 +134,7 @@ async function checkSession() {
   if (status === 'ACTIVE') return;
   stopSessionWatch();
   session.user = null;
-  onSessionEnded(status === 'REPLACED'
-    ? '다른 기기에서 로그인되어 로그아웃되었습니다.'
-    : '로그인이 만료되었습니다. 다시 로그인해 주세요.');
+  onSessionEnded(SESSION_END_MESSAGES[status] || SESSION_END_MESSAGES.NONE);
 }
 
 /** 로그아웃 : POST /api/user/logout → Redis 의 세션이 지워져 모든 서버에서 동시에 로그아웃된다 */

@@ -33,7 +33,8 @@ import lombok.RequiredArgsConstructor;
  * Spring MVC 는 컨트롤러 코드와 상관없이 요청마다 세션을 열어 본다 (FlashMap 관리, 요청 처리 이벤트 등).
  * 그래서 Spring Session·Spring MVC 보다 앞에서 동작하는 필터가 쿠키 값만 읽어 Redis 를 직접 확인하고 바로 응답한다.
  *
- * <p>응답 status : ACTIVE(로그인 유지) / REPLACED(다른 기기에서 로그인되어 끊김) / NONE(로그아웃·만료).
+ * <p>응답 status : ACTIVE(로그인 유지) / REPLACED(다른 기기에서 로그인되어 끊김)
+ * / PASSWORD_RESET(관리자가 비밀번호를 초기화해 끊김) / NONE(로그아웃·만료).
  * 항상 200 으로 응답한다 (프론트가 401 처리 흐름을 타지 않고 직접 판단하도록).
  */
 @Component
@@ -60,10 +61,9 @@ public class SessionStatusFilter extends OncePerRequestFilter {
 		String status;
 		if (sessionId != null && loginSessionRegistry.sessionExists(sessionId)) {
 			status = "ACTIVE";
-		} else if (loginSessionRegistry.wasReplaced(sessionId)) {
-			status = "REPLACED";
 		} else {
-			status = "NONE";
+			String reason = loginSessionRegistry.endReason(sessionId);
+			status = reason != null ? reason : "NONE";
 		}
 		// 다음 필터(세션·MVC)로 넘기지 않고 여기서 응답을 끝낸다
 		response.setStatus(HttpServletResponse.SC_OK);

@@ -28,8 +28,8 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 SESSION_COOKIE_NAME = "SESSION"
 # Redis 키 = SESSION_KEY_PREFIX + 쿠키 값(세션 ID)
 SESSION_KEY_PREFIX = "alyak:session:sessions:"
-# 다른 기기 로그인으로 끊긴 세션 표시 (user-api 의 LoginSessionRegistry 와 같은 규칙)
-REPLACED_KEY_PREFIX = "alyak:login:replaced:"
+# 강제로 끊긴 세션의 이유 (user-api 의 LoginSessionRegistry 와 같은 규칙) : REPLACED / PASSWORD_RESET
+ENDED_KEY_PREFIX = "alyak:login:ended:"
 # 세션 유효 시간(초). 마지막 요청 후 30분
 SESSION_MAX_INACTIVE_SECONDS = 1800
 

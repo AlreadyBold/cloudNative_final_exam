@@ -79,10 +79,13 @@ def login_required(request: Request):
     """
     user = find_login_user(request)
     if user is None:
-        # 다른 기기 로그인으로 끊긴 세션이면 이유를 알려 준다 (user-api 의 LoginSessionRegistry 가 남긴 표시)
+        # 강제로 끊긴 세션이면 이유를 알려 준다 (user-api 의 LoginSessionRegistry 가 남긴 표시)
         session_id = request.cookies.get(config.SESSION_COOKIE_NAME)
-        if session_id and SESSION_ID_PATTERN.match(session_id) \
-                and redis_client.exists(config.REPLACED_KEY_PREFIX + session_id):
-            raise BusinessError(ErrorCode.AUTH_SESSION_REPLACED)
+        if session_id and SESSION_ID_PATTERN.match(session_id):
+            reason = redis_client.get(config.ENDED_KEY_PREFIX + session_id)
+            if reason == "REPLACED":
+                raise BusinessError(ErrorCode.AUTH_SESSION_REPLACED)
+            if reason == "PASSWORD_RESET":
+                raise BusinessError(ErrorCode.AUTH_PASSWORD_RESET)
         raise BusinessError(ErrorCode.COMMON_UNAUTHORIZED)
     return user

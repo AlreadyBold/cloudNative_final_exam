@@ -51,6 +51,6 @@ public class AdminService {
 			throw new BusinessException(ErrorCode.ADMIN_RESET_NOT_ALLOWED);
 		}
 		member.changePasswordHash(passwordEncoder.encode(RESET_PASSWORD));
-		loginSessionRegistry.forceLogout(memberId);
+		loginSessionRegistry.forceLogout(memberId, LoginSessionRegistry.REASON_PASSWORD_RESET);
 	}
 }
