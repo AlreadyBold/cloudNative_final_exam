@@ -1,7 +1,7 @@
 /* =====================================================================
    search.js : 약 검색 (pill-api)
      GET /api/pill/catalog/search?q=...&page=1&size=20  : 이름 검색 (전문·일반의약품 모두)
-     GET /api/pill/catalog/{item_seq}                   : 상세 (성분, 성상, 각인, 크기)
+     GET /api/pill/catalog/{item_seq}                   : 상세 (성분, 성상)
    검색 결과에서 [약통에 담기]를 누르면 pillbox.js 의 addToPillbox 로 담는다.
    ===================================================================== */
 import { api } from './api.js';
@@ -85,15 +85,10 @@ async function toggleDetail(itemSeq, box) {
   if (!box.dataset.loaded) {
     try {
       const d = await api.get(`/api/pill/catalog/${encodeURIComponent(itemSeq)}`);
-      const size = [d.leng_long, d.leng_short, d.thick].some(Boolean)
-        ? `${d.leng_long ?? '-'} × ${d.leng_short ?? '-'} × ${d.thick ?? '-'} mm` : null;
+      // 사용자에게 의미 있는 정보만 보여 준다 (제형·각인·크기·보험코드는 낱알 식별용이라 뺐다)
       const rows = [
         ['성분', d.main_ingredient],
         ['성상', d.chart],
-        ['제형', d.form_code_name],
-        ['각인', [d.print_front, d.print_back].filter(Boolean).join(' / ')],
-        ['크기(장축×단축×두께)', size],
-        ['보험코드', (d.edi_codes || []).join(', ')],
       ].filter(([, value]) => value);
       box.replaceChildren(...rows.map(([label, value]) => el('div', {}, el('b', {}, `${label} : `), value)));
       if (rows.length === 0) box.append('추가 정보가 없습니다.');
