@@ -66,8 +66,10 @@ public class MemberAuthController {
 		session.setAttribute(SessionAttributeNames.USER_ID, member.getId());
 		session.setAttribute(SessionAttributeNames.USERNAME, member.getEmail());
 		session.setAttribute(SessionAttributeNames.NICKNAME, member.getNickname());
+		session.setAttribute(SessionAttributeNames.ROLE, member.getRole().name());
 
-		return ApiResponse.ok(new LoginUser(member.getId(), member.getEmail(), member.getNickname()));
+		return ApiResponse.ok(
+			new LoginUser(member.getId(), member.getEmail(), member.getNickname(), member.getRole().name()));
 	}
 
 	/**

@@ -4,6 +4,8 @@ import com.alyak.userapi.global.entity.BaseTimeEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -44,11 +46,31 @@ public class Member extends BaseTimeEntity {
 	@Column(nullable = false, length = NICKNAME_MAX_LENGTH)
 	private String nickname;
 
-	/** 회원가입 시 사용하는 생성자 */
+	/** 권한 (USER / ADMIN). DB 에는 문자열로 저장한다 */
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 10)
+	private MemberRole role;
+
+	/** 회원가입 시 사용하는 생성자 (일반 사용자) */
 	public Member(String email, String passwordHash, String nickname) {
+		this(email, passwordHash, nickname, MemberRole.USER);
+	}
+
+	private Member(String email, String passwordHash, String nickname, MemberRole role) {
 		this.email = email;
 		this.passwordHash = passwordHash;
 		this.nickname = nickname;
+		this.role = role;
+	}
+
+	/** 관리자 계정 생성 (AdminAccountInitializer 가 서버 시작 시 사용) */
+	public static Member admin(String email, String passwordHash, String nickname) {
+		return new Member(email, passwordHash, nickname, MemberRole.ADMIN);
+	}
+
+	/** 관리자인지 */
+	public boolean isAdmin() {
+		return role == MemberRole.ADMIN;
 	}
 
 	/** 닉네임 변경 (트랜잭션 안에서 호출하면 JPA 가 변경을 감지해 UPDATE 한다) */

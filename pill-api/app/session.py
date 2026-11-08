@@ -11,6 +11,7 @@
  필드 : sessionAttr:userId    → 1                (JSON 숫자)
         sessionAttr:username  → "a@b.com"        (JSON 문자열)
         sessionAttr:nickname  → "준형"           (JSON 문자열)
+        sessionAttr:role      → "USER"           (JSON 문자열, USER / ADMIN)
         lastAccessedTime      → 1793759808488    (밀리초)
  값이 JSON 이라서 json.loads 로 바로 읽을 수 있다. (Spring 기본값인 자바 직렬화였다면 파이썬이 읽을 수 없다)
 """
@@ -38,10 +39,11 @@ class LoginUser:
     user_id: int
     username: str
     nickname: str
+    role: str
     session_id: str
 
     def to_dict(self):
-        return {"user_id": self.user_id, "username": self.username, "nickname": self.nickname}
+        return {"user_id": self.user_id, "username": self.username, "nickname": self.nickname, "role": self.role}
 
 
 def find_login_user(request: Request):
@@ -65,6 +67,7 @@ def find_login_user(request: Request):
         user_id=int(json.loads(raw_user_id)),
         username=json.loads(session.get("sessionAttr:username", "null")),
         nickname=json.loads(session.get("sessionAttr:nickname", "null")),
+        role=json.loads(session.get("sessionAttr:role", '"USER"')),
         session_id=session_id,
     )
 

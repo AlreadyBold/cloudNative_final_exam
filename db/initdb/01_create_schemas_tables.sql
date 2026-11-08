@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS alyak_user.users (
   email         VARCHAR(100) NOT NULL                COMMENT '로그인 아이디 (세션의 username 으로 사용)',
   password_hash VARCHAR(100) NOT NULL                COMMENT 'BCrypt 비밀번호 해시',
   nickname      VARCHAR(20)  NOT NULL                COMMENT '화면 표시용 이름 (세션의 nickname)',
+  role          VARCHAR(10)  NOT NULL DEFAULT 'USER' COMMENT '권한 (USER / ADMIN, 세션의 role)',
   created_at    DATETIME(6)  NOT NULL                COMMENT '가입 시각',
   updated_at    DATETIME(6)  NOT NULL                COMMENT '마지막 수정 시각',
   PRIMARY KEY (id),

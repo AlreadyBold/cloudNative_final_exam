@@ -11,8 +11,14 @@ import jakarta.servlet.http.HttpSession;
  * @param userId   회원 번호
  * @param username 로그인 아이디(이메일)
  * @param nickname 화면 표시 이름
+ * @param role     권한 (USER / ADMIN)
  */
-public record LoginUser(Long userId, String username, String nickname) {
+public record LoginUser(Long userId, String username, String nickname, String role) {
+
+	/** 관리자인지 */
+	public boolean isAdmin() {
+		return "ADMIN".equals(role);
+	}
 
 	/**
 	 * 세션에서 로그인 사용자 정보를 꺼낸다. 로그인하지 않은 세션이면 null.
@@ -31,6 +37,7 @@ public record LoginUser(Long userId, String username, String nickname) {
 		return new LoginUser(
 			number.longValue(),
 			(String) session.getAttribute(SessionAttributeNames.USERNAME),
-			(String) session.getAttribute(SessionAttributeNames.NICKNAME));
+			(String) session.getAttribute(SessionAttributeNames.NICKNAME),
+			(String) session.getAttribute(SessionAttributeNames.ROLE));
 	}
 }

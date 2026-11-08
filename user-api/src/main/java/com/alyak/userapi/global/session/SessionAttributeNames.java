@@ -17,6 +17,8 @@ public final class SessionAttributeNames {
 	public static final String USERNAME = "username";
 	/** 화면 표시 이름 (문자열) */
 	public static final String NICKNAME = "nickname";
+	/** 권한 (문자열, USER / ADMIN) */
+	public static final String ROLE = "role";
 
 	// 상수만 모아 둔 클래스라 객체 생성을 막는다
 	private SessionAttributeNames() {

@@ -5,7 +5,7 @@
 #  - DB 비밀번호는 코드·이미지·git 에 두지 않는다. 이 스크립트가 무작위 값으로 env 파일을 만들고,
 #    docker run --env-file 로 각 컨테이너에 "자기에게 필요한 값만" 넘긴다.
 #      env/mysql.env    : MySQL root 비밀번호 + 서비스 계정 2개의 비밀번호 (계정 생성용)
-#      env/user-api.env : user-api 계정 비밀번호 (+ CODEF 키는 직접 채워 넣는 선택 항목)
+#      env/user-api.env : user-api 계정 비밀번호 + 관리자 계정(이메일·무작위 비밀번호) (+ CODEF 키는 선택 항목)
 #      env/pill-api.env : pill-api 계정 비밀번호
 #  - env/*.env 는 .gitignore 에 들어 있어 커밋되지 않는다. (형식은 env/*.env.example 참고)
 #  - 이미 파일이 있으면 덮어쓰지 않는다. 비밀번호가 바뀌면 이미 만들어진 DB 에 접속할 수 없기 때문이다.
@@ -27,6 +27,7 @@ random_password() {
 ROOT_PW=$(random_password)
 USER_PW=$(random_password)
 PILL_PW=$(random_password)
+ADMIN_PW=$(random_password)
 
 # umask 077 : 만든 파일을 나만 읽고 쓸 수 있게 (권한 600)
 umask 077
@@ -40,6 +41,9 @@ ENV
 
 cat > env/user-api.env <<ENV
 DB_PASSWORD=${USER_PW}
+# 관리자 계정 (user-api 가 처음 뜰 때 없으면 만든다). 비밀번호는 이 파일에서 확인·변경한다.
+ADMIN_EMAIL=admin@admin.com
+ADMIN_PASSWORD=${ADMIN_PW}
 # CODEF 키 (선택). 비워 두면 처방내역 불러오기가 모의(MOCK) 모드로 동작한다.
 CODEF_SERVICE_TYPE=DEMO
 CODEF_CLIENT_ID=
