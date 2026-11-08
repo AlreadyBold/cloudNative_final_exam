@@ -209,6 +209,23 @@ input, select {
 .log { list-style: none; padding: 0; font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem; max-height: 240px; overflow: auto; }
 .log li { border-bottom: 1px dashed var(--line); padding: 3px 0; }
 
+/* ----- 관리자 백오피스 ----- */
+.admin-badge { background: var(--text); color: #fff; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 8px 0 16px; }
+.stat { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.stat .stat-value { font-size: 1.6rem; font-weight: 700; }
+.stat .stat-label { color: var(--muted); font-size: 0.85rem; }
+.service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.service { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; border-left-width: 4px; }
+.service.up { border-left-color: var(--ok); }
+.service.down { border-left-color: var(--danger); background: #fdf2f2; }
+.service .service-name { font-weight: 600; font-family: ui-monospace, Menlo, monospace; font-size: 0.9rem; }
+.service .service-meta { color: var(--muted); font-size: 0.8rem; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.dot.on { background: var(--ok); }
+.dot.off { background: #c3cad3; }
+.dot.down { background: var(--danger); }
+
 /* ----- 알림 메시지 ----- */
 .toast {
   position: fixed;

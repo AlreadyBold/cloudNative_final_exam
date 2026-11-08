@@ -19,6 +19,7 @@
   <header class="topbar">
     <h1 class="brand">💊 내약통한눈에</h1>
     <div class="who" id="who" hidden>
+      <span class="badge admin-badge" id="who-admin" hidden>관리자</span>
       <span id="who-name"></span>
       <button type="button" class="btn small ghost" id="logout-btn">로그아웃</button>
     </div>
@@ -197,6 +198,36 @@
       <h3>최근 API 요청 기록</h3>
       <p class="hint">이 화면에서 보낸 모든 API 요청의 응답 헤더 X-Served-By 를 기록합니다.</p>
       <ul class="log" id="request-log"></ul>
+    </section>
+  </main>
+
+  <!-- ===== 관리자 백오피스 (role 이 ADMIN 인 계정으로 로그인하면 사용자 화면 대신 보임) =====
+       관리자 API(/api/user/admin/**)는 서버에서도 ADMIN 만 허용한다. 관리자도 사용자의 약 정보는 볼 수 없다. -->
+  <main id="admin-view" class="container admin" hidden>
+    <nav class="tabs" id="admin-tabs">
+      <button type="button" class="tab active" data-admin-tab="dashboard">대시보드</button>
+      <button type="button" class="tab" data-admin-tab="members">회원 관리</button>
+    </nav>
+
+    <!-- [관리자 1] 대시보드 : GET /api/user/admin/dashboard (10초마다 자동 새로고침) -->
+    <section class="card admin-panel" id="admin-dashboard">
+      <div class="row between">
+        <h2>서비스 대시보드</h2>
+        <span class="hint" id="dashboard-updated"></span>
+      </div>
+      <div class="stats" id="dashboard-stats"></div>
+      <h3>컨테이너 상태</h3>
+      <div class="service-grid" id="dashboard-services"></div>
+    </section>
+
+    <!-- [관리자 2] 회원 관리 : GET /api/user/admin/members, 비밀번호 초기화 -->
+    <section class="card admin-panel" id="admin-members" hidden>
+      <h2>회원 관리</h2>
+      <p class="hint">비밀번호 초기화를 누르면 그 회원의 비밀번호가 <b>test1234</b> 로 바뀌고, 로그인 중이면 로그아웃됩니다.</p>
+      <table class="table">
+        <thead><tr><th>#</th><th>이메일</th><th>닉네임</th><th>권한</th><th>가입일</th><th>접속</th><th></th></tr></thead>
+        <tbody id="members-body"></tbody>
+      </table>
     </section>
   </main>
 

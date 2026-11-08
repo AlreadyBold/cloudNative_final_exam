@@ -7,6 +7,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import com.alyak.userapi.admin.config.AdminCheckInterceptor;
 import com.alyak.userapi.global.session.LoginCheckInterceptor;
 import com.alyak.userapi.global.session.LoginUserArgumentResolver;
 
@@ -20,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class WebMvcConfig implements WebMvcConfigurer {
 
 	private final LoginCheckInterceptor loginCheckInterceptor;
+	private final AdminCheckInterceptor adminCheckInterceptor;
 	private final LoginUserArgumentResolver loginUserArgumentResolver;
 
 	/**
@@ -34,6 +36,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
 				"/api/user/login",    // 로그인
 				"/api/user/logout",   // 로그아웃 (이미 로그아웃된 상태에서 눌러도 성공으로 처리)
 				"/api/user/health");  // 서버 상태 확인 (프록시·시연용)
+
+		// 관리자 API : 로그인 검사 다음에 "관리자인지" 검사 (등록 순서대로 실행된다)
+		registry.addInterceptor(adminCheckInterceptor)
+			.addPathPatterns("/api/user/admin/**");
 	}
 
 	/** 컨트롤러 파라미터 LoginUser 자동 주입 기능 등록 */

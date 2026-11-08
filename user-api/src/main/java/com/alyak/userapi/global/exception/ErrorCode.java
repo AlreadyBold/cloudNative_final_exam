@@ -18,6 +18,7 @@ public enum ErrorCode {
 	// ----- 공통 -----
 	COMMON_INVALID_INPUT(HttpStatus.BAD_REQUEST, "요청 값이 올바르지 않습니다."),
 	COMMON_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
+	COMMON_FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
 	COMMON_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 주소를 찾을 수 없습니다."),
 	COMMON_METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 HTTP 메서드입니다."),
 	COMMON_INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),
@@ -29,6 +30,7 @@ public enum ErrorCode {
 
 	// ----- 회원 (마이페이지) -----
 	MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "회원을 찾을 수 없습니다."),
+	ADMIN_RESET_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "관리자 계정의 비밀번호는 초기화할 수 없습니다."),
 	MEMBER_PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다."),
 
 	// ----- 처방내역 불러오기 (CODEF 간편인증) -----

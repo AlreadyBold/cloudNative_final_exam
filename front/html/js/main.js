@@ -4,6 +4,7 @@
    - 로그인 여부에 따라 "로그인 화면" / "앱 화면"을 바꾸고
    - 탭을 누르면 해당 화면을 보여 주며 필요한 데이터를 새로 불러온다
    ===================================================================== */
+import { initAdmin, openAdminTab, stopAdmin } from './admin.js';
 import { setUnauthorizedHandler } from './api.js';
 import { initAuth, logout, restoreSession, session } from './auth.js';
 import { initImporter } from './importer.js';
@@ -20,16 +21,29 @@ const TAB_LOADERS = {
 };
 
 /** 로그인 후 화면 보여 주기 */
+/**
+ * 로그인 후 화면 보여 주기 : 권한에 따라 사용자 화면 / 관리자 백오피스로 나뉜다
+ * (화면만 나누는 것이고, 관리자 API 는 서버에서도 ADMIN 만 허용한다)
+ */
 function showApp() {
+  const isAdmin = session.user?.role === 'ADMIN';
   $('auth-view').hidden = true;
-  $('app-view').hidden = false;
+  $('app-view').hidden = isAdmin;
+  $('admin-view').hidden = !isAdmin;
   $('who').hidden = false;
   renderWho();
+  if (isAdmin) {
+    openAdminTab('dashboard');
+  } else {
+    openTab('pillbox');
+  }
 }
 
 /** 로그인 화면 보여 주기 */
 function showAuth() {
+  stopAdmin(); // 대시보드 자동 새로고침 멈춤
   $('app-view').hidden = true;
+  $('admin-view').hidden = true;
   $('who').hidden = true;
   $('auth-view').hidden = false;
 }
@@ -37,6 +51,7 @@ function showAuth() {
 /** 상단 바의 "○○님" 표시 */
 function renderWho() {
   $('who-name').textContent = session.user ? `${session.user.nickname} 님` : '';
+  $('who-admin').hidden = session.user?.role !== 'ADMIN';
 }
 
 /** 탭 전환 */
@@ -49,12 +64,13 @@ function openTab(name) {
 /** 페이지가 열리면 한 번 실행 */
 async function start() {
   // 각 화면의 버튼·폼 이벤트 연결
-  initAuth(() => { showApp(); openTab('pillbox'); });
+  initAuth(showApp);
   initSearch();
   initPillbox();
   initImporter();
   initMyPage(renderWho, showAuth);
   initSession();
+  initAdmin();
 
   document.querySelectorAll('#tabs .tab').forEach((tab) => tab.addEventListener('click', () => openTab(tab.dataset.tab)));
 
@@ -67,7 +83,7 @@ async function start() {
   // 어느 API 든 401(로그인 필요)이 오면 세션이 끝난 것이므로 로그인 화면으로
   // (다른 기기에서 같은 계정으로 로그인하면 "다른 기기에서 로그인되어 로그아웃되었습니다." 가 온다)
   setUnauthorizedHandler((message) => {
-    if (!$('app-view').hidden) {
+    if (!$('app-view').hidden || !$('admin-view').hidden) {
       session.user = null;
       showAuth();
       toast(message || '로그인이 필요합니다.', true);
@@ -77,7 +93,6 @@ async function start() {
   // 새로고침해도 SESSION 쿠키가 살아 있으면 로그인 상태로 시작
   if (await restoreSession()) {
     showApp();
-    openTab('pillbox');
   } else {
     showAuth();
   }
