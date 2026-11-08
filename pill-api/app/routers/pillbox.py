@@ -2,6 +2,7 @@
 내 약통 API (로그인 필요) : 사용자가 먹는 약과 복용 기간
   GET    /api/pill/pillbox       : 목록 (복용 상태 포함 : 복용 중 → 복용 예정 → 복용 완료 순)
   POST   /api/pill/pillbox       : 담기 (약 검색 결과 또는 처방내역에서, 복용 시작일·종료일 지정)
+  POST   /api/pill/pillbox/prescriptions : 불러온 처방을 한 번에 담기 (복용 기간은 처방으로 계산)
   PATCH  /api/pill/pillbox/{id}  : 복용 기간·메모 수정
   DELETE /api/pill/pillbox/{id}  : 빼기
 
@@ -11,10 +12,14 @@
   종료일 < 오늘           → DONE     (복용 완료)
   "오늘"은 DB 서버의 날짜(CURDATE(), 한국 시간 +09:00)를 써서 어느 컨테이너가 계산해도 같다.
 
+[처방에서 담을 때의 복용 기간]
+  처방 1건 안의 약은 모두 같은 기간 : 조제일 ~ 조제일 + (그 처방에서 가장 긴 투약일수 - 1)
+  예) 2026-09-29 조제, 약이 5일·7일 → 모든 약 2026-09-29 ~ 2026-10-05 (7일)
+
 회원 번호(user_id)는 요청 본문이 아니라 "세션"에서 가져온다. 그래서 다른 사람의 약통은 볼 수도, 고칠 수도 없다.
 """
 import datetime
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, model_validator
@@ -33,6 +38,8 @@ MAX_PERIOD_DAYS = 3650
 # 약통 항목 + 복용 상태 + 카탈로그 정보(사진, 모양). 카탈로그에 없는 약도 보여 주기 위해 LEFT JOIN
 SELECT_ITEMS = """
     SELECT b.id, b.item_seq, b.drug_code, b.drug_name, b.start_date, b.end_date, b.memo, b.source, b.created_at,
+           b.dispensed_date, b.prescriber, b.pharmacy, b.ingredients, b.one_dose, b.daily_doses,
+           b.total_dosing_days, b.effect, b.data_source,
            CASE WHEN b.start_date > CURDATE() THEN 'UPCOMING'
                 WHEN b.end_date < CURDATE()   THEN 'DONE'
                 ELSE 'TAKING' END AS status,
@@ -152,6 +159,77 @@ def add_item(body: AddRequest, user: LoginUser = Depends(login_required)):
                "start_date": body.start_date, "end_date": body.end_date,
                "memo": (body.memo or "").strip() or None, "source": body.source})
         return ok(find_item(conn, user.user_id, result.lastrowid))
+
+
+class PrescriptionDrug(BaseModel):
+    """처방 안의 약 1개 (user-api 응답의 drugs[i] 와 같은 필드 이름)"""
+    drug_code: Optional[str] = Field(None, max_length=20)
+    name: str = Field(..., min_length=1, max_length=500)
+    ingredients: Optional[str] = Field(None, max_length=1000)
+    one_dose: Optional[str] = Field(None, max_length=20)
+    daily_doses: Optional[str] = Field(None, max_length=20)
+    total_dosing_days: Optional[str] = Field(None, max_length=20)
+    effect: Optional[str] = Field(None, max_length=200)
+
+
+class Prescription(BaseModel):
+    """처방 1건 (user-api 응답의 prescriptions[i] 와 같은 필드 이름)"""
+    dispensed_date: Optional[datetime.date] = None
+    pharmacy: Optional[str] = Field(None, max_length=100)
+    prescriber: Optional[str] = Field(None, max_length=100)
+    drugs: List[PrescriptionDrug] = Field(..., min_length=1, max_length=100)
+
+
+class PrescriptionsRequest(BaseModel):
+    """예) {"source": "CODEF", "prescriptions": [{...}, {...}]} — user-api 완료 응답에서 고른 처방 그대로"""
+    source: Literal["CODEF", "MOCK"]
+    prescriptions: List[Prescription] = Field(..., min_length=1, max_length=200)
+
+
+def dosing_days(value):
+    """총 투약일수 문자열 → 일수. 숫자가 아니거나 비어 있으면 1일로 본다"""
+    try:
+        return max(1, min(int(str(value).strip()), MAX_PERIOD_DAYS))
+    except (TypeError, ValueError):
+        return 1
+
+
+def prescription_period(prescription):
+    """처방 1건의 복용 기간 : 조제일(없으면 오늘)부터 가장 긴 투약일수만큼"""
+    start = prescription.dispensed_date or datetime.date.today()
+    days = max(dosing_days(d.total_dosing_days) for d in prescription.drugs)
+    return start, start + datetime.timedelta(days=days - 1)
+
+
+@router.post("/prescriptions", status_code=201)
+def add_prescriptions(body: PrescriptionsRequest, user: LoginUser = Depends(login_required)):
+    """
+    불러온 처방을 약통에 한 번에 담는다. 같은 약을 같은 시작일로 이미 담았으면 건너뛴다.
+    응답 예) {"saved_count": 6, "skipped_count": 0}
+    """
+    saved = skipped = 0
+    with engine.begin() as conn:
+        for prescription in body.prescriptions:
+            start, end = prescription_period(prescription)
+            for drug in prescription.drugs:
+                # 보험코드 → 약품명 순으로 카탈로그 약을 찾아 연결 (못 찾으면 NULL, 처방 정보만 보관)
+                item_seq = match_catalog(conn, drug.drug_code, drug.name)
+                if is_duplicate(conn, user.user_id, item_seq, drug.drug_code, drug.name, start):
+                    skipped += 1
+                    continue
+                conn.execute(text("""
+                    INSERT INTO pillbox_items
+                        (user_id, item_seq, drug_code, drug_name, start_date, end_date, source,
+                         dispensed_date, prescriber, pharmacy, ingredients, one_dose, daily_doses,
+                         total_dosing_days, effect, data_source)
+                    VALUES (:user_id, :item_seq, :drug_code, :name, :start, :end, 'PRESCRIPTION',
+                            :dispensed_date, :prescriber, :pharmacy, :ingredients, :one_dose, :daily_doses,
+                            :total_dosing_days, :effect, :data_source)
+                """), {**drug.model_dump(), "user_id": user.user_id, "item_seq": item_seq, "start": start, "end": end,
+                       "dispensed_date": prescription.dispensed_date, "prescriber": prescription.prescriber,
+                       "pharmacy": prescription.pharmacy, "data_source": body.source})
+                saved += 1
+    return ok({"saved_count": saved, "skipped_count": skipped})
 
 
 @router.patch("/{item_id}")

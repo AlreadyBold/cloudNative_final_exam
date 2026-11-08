@@ -145,6 +145,16 @@ CREATE TABLE IF NOT EXISTS alyak_pill.pillbox_items (
   end_date   DATE         NOT NULL COMMENT '복용 종료일 (이 날까지 먹는다)',
   memo       VARCHAR(200)     NULL COMMENT '사용자 메모 (예: 아침 식후 1알)',
   source     VARCHAR(20)  NOT NULL COMMENT '담은 경로 (SEARCH / PRESCRIPTION)',
+  -- 처방내역에서 담은 경우의 처방 정보 (검색에서 담았으면 모두 NULL)
+  dispensed_date    DATE              NULL COMMENT '조제일',
+  prescriber        VARCHAR(100)      NULL COMMENT '처방기관(병원)',
+  pharmacy          VARCHAR(100)      NULL COMMENT '조제기관(약국)',
+  ingredients       VARCHAR(1000)     NULL COMMENT '성분명',
+  one_dose          VARCHAR(20)       NULL COMMENT '1회 투약량',
+  daily_doses       VARCHAR(20)       NULL COMMENT '1일 투여횟수',
+  total_dosing_days VARCHAR(20)       NULL COMMENT '총 투약일수',
+  effect            VARCHAR(200)      NULL COMMENT '약효',
+  data_source       VARCHAR(10)       NULL COMMENT '불러온 방식 (CODEF: 실제 조회, MOCK: 샘플 데이터)',
   created_at DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '담은 시각',
   PRIMARY KEY (id),
   KEY idx_pillbox_items_user (user_id, end_date)

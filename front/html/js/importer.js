@@ -9,8 +9,8 @@
     2. [인증 완료]  POST /api/user/prescriptions/import/{id}/complete (user-api, 시작한 브라우저에서만 가능)
        → 최근 1년 조제 내역
        → 화면에 보여 주기 전에 POST /api/pill/catalog/match 로 약마다 카탈로그를 연결해 사진·[상세]를 붙인다
-    3. [선택한 처방 저장]  POST /api/pill/prescriptions              (pill-api)
-       → 이미 저장한 처방은 서버가 건너뛰고 "저장 n건 / 건너뜀 m건"을 알려 준다.
+    3. [선택한 처방을 약통에 담기]  POST /api/pill/pillbox/prescriptions   (pill-api)
+       → 처방마다 복용 기간 = 조제일 ~ 조제일 + (가장 긴 투약일수 - 1). 같은 약·같은 시작일은 서버가 건너뛴다.
 
    [개인정보 보호]
     - 주민등록번호 뒷자리는 비밀번호 입력칸이라 ●로 가려진다. 휴대폰 번호는 입력 중 자동으로 하이픈이 붙는다.
@@ -22,7 +22,7 @@
 import { api } from './api.js';
 import { renderDrug, sourceBadge } from './saved.js';
 import {
-  $, el, formValues, formatDate, formatPhoneInput, maskIdentity, maskName, maskPhone, showError, toast, withBusy,
+  $, addDays, el, formValues, formatDate, formatPhoneInput, maskIdentity, maskName, maskPhone, showError, toast, withBusy,
 } from './ui.js';
 
 /** 진행 중인 불러오기 상태 */
@@ -141,6 +141,7 @@ async function showResult() {
         el('input', { type: 'checkbox', checked: true, 'data-index': index }), ' ',
         el('b', {}, formatDate(rx.dispensed_date)), ' ',
         [rx.prescriber, rx.pharmacy].filter(Boolean).join(' · '))),
+    el('div', { class: 'period' }, periodText(rx)),
     el('ul', { class: 'rx-drugs' }, rx.drugs.map((drug, drugIndex) => {
       const pill = matched[index]?.[drugIndex]; // 연결된 카탈로그 약 (없으면 undefined/null)
       return renderDrug({
@@ -173,17 +174,28 @@ async function matchCatalog(prescriptions) {
   }
 }
 
-/** 체크한 처방만 pill-api 에 저장 */
+/**
+ * 처방 1건의 복용 기간 안내 (서버와 같은 규칙) : 조제일 ~ 조제일 + (가장 긴 투약일수 - 1)
+ * 예) 2026-09-29, 약이 5일·7일 → "복용 기간 2026-09-29 ~ 2026-10-05 (7일, 가장 긴 처방 기준)"
+ */
+function periodText(rx) {
+  const days = Math.max(1, ...rx.drugs.map((d) => parseInt(d.total_dosing_days, 10) || 1));
+  if (!rx.dispensed_date) return `복용 기간 ${days}일 (가장 긴 처방 기준)`;
+  return `복용 기간 ${rx.dispensed_date} ~ ${addDays(rx.dispensed_date, days - 1)} (${days}일, 가장 긴 처방 기준)`;
+}
+
+/** 체크한 처방을 약통에 담기 */
 async function saveSelected() {
   const checked = [...document.querySelectorAll('#import-list input[type=checkbox]:checked')]
     .map((box) => state.prescriptions[Number(box.dataset.index)]);
   if (checked.length === 0) {
-    toast('저장할 처방을 선택해 주세요.', true);
+    toast('약통에 담을 처방을 선택해 주세요.', true);
     return;
   }
   try {
-    const result = await api.post('/api/pill/prescriptions', { source: state.source, prescriptions: checked });
-    toast(`저장 ${result.saved_count}건` + (result.skipped_count ? `, 이미 저장돼 있어 건너뜀 ${result.skipped_count}건` : ''));
+    const result = await api.post('/api/pill/pillbox/prescriptions', { source: state.source, prescriptions: checked });
+    toast(`약 ${result.saved_count}개를 약통에 담았습니다`
+      + (result.skipped_count ? ` (이미 담긴 ${result.skipped_count}개는 건너뜀)` : ''));
   } catch (error) {
     showError(error);
   }
