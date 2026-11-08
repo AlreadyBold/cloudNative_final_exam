@@ -41,5 +41,6 @@ docker run -d --name alyak-front --hostname alyak-front --network alyak-net --re
 
 # [6] 역방향 프록시 : 브라우저가 접속하는 유일한 입구
 #  -p 8080:80 : 호스트 8080 → 컨테이너 80 (80·81·443 번은 수업 실습 프록시가 사용 중)
-#  nginx 는 시작할 때 컨테이너 이름을 IP 로 바꾸므로, 다른 컨테이너를 모두 띄운 뒤 마지막에 실행한다.
+#  컨테이너 IP 는 10초마다 다시 확인하므로(proxy/nginx.conf 의 resolver) 다른 컨테이너를 다시 만들어도 따라간다.
+#  요청을 받을 서버들이 준비된 뒤에 받도록 마지막에 실행한다.
 docker run -d --name alyak-proxy --hostname alyak-proxy --network alyak-net --restart unless-stopped -p 8080:80 junheong/alyak-proxy:1.0
