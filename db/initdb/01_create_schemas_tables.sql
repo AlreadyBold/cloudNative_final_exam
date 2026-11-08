@@ -92,6 +92,21 @@ CREATE TABLE IF NOT EXISTS alyak_pill.pill_catalog_code (
   KEY idx_pill_catalog_code_item (item_seq)
 ) ENGINE = InnoDB COMMENT = '약 코드 매핑';
 
+-- 약별 DUR(의약품 안전사용 정보) : 약 상세 화면에 "주의 정보"로 표시
+--  - 카탈로그 원천(jsonl)의 dur 항목에서 만든다. 약 1개에 여러 행.
+--  - PREGNANCY 임부금기 / AGE 연령금기 / ELDERLY 노인주의 / COMBINATION 병용금기
+CREATE TABLE IF NOT EXISTS alyak_pill.pill_catalog_dur (
+  id                 BIGINT        NOT NULL AUTO_INCREMENT,
+  item_seq           VARCHAR(20)   NOT NULL COMMENT '약 (pill_catalog.item_seq)',
+  dur_type           VARCHAR(20)   NOT NULL COMMENT 'PREGNANCY / AGE / ELDERLY / COMBINATION',
+  partner_ingredient VARCHAR(200)      NULL COMMENT '병용금기 : 같이 먹으면 안 되는 성분 (영문)',
+  grade              VARCHAR(10)       NULL COMMENT '임부금기 등급 (1, 2)',
+  age_condition      VARCHAR(20)       NULL COMMENT '연령금기 조건 (예: 12세 미만)',
+  detail             VARCHAR(1000)     NULL COMMENT '상세 내용',
+  PRIMARY KEY (id),
+  KEY idx_pill_catalog_dur_item (item_seq, dur_type)
+) ENGINE = InnoDB COMMENT = '약별 DUR 주의 정보';
+
 -- DUR 병용금기 검사용 (1/2) : 보험코드(EDI) → 성분코드
 --  - "내 약통"에 담긴 약끼리 함께 먹으면 안 되는 조합이 있는지 검사할 때 사용한다.
 --  - 심평원 DUR 병용금기 품목리스트(CSV)의 제품코드/성분코드 열에서 만든다.

@@ -15,6 +15,7 @@
 # [만드는 테이블 데이터]  (테이블 구조는 01_create_schemas_tables.sql)
 #  alyak_pill.pill_catalog      : 약 1개 = 1행. 웹 화면에 필요한 컬럼만 추린다
 #  alyak_pill.pill_catalog_code : 보험코드(EDI) → 약. 처방내역의 약품코드로 약을 찾을 때 사용
+#  alyak_pill.pill_catalog_dur  : 약별 DUR 주의 정보 (임부금기·연령금기·노인주의·병용금기, 약 상세 화면용)
 #  alyak_pill.dur_ingredient    : 보험코드 → 성분코드 (병용금기 검사용)
 #  alyak_pill.dur_combination   : 함께 먹으면 안 되는 성분 쌍 (제품 쌍 87만 행 → 성분 쌍 약 2만 4천 행)
 #
@@ -184,7 +185,7 @@ def write_inserts(out, table, columns, rows):
 # ---------------------------------------------------------------------
 def read_catalog(path):
     """catalog.jsonl → pill_catalog 행, pill_catalog_code 행"""
-    catalog_rows, code_rows = [], []
+    catalog_rows, code_rows, dur_rows = [], [], []
     with open(path, encoding="utf-8") as file:
         for line in file:
             if not line.strip():
@@ -221,12 +222,34 @@ def read_catalog(path):
                 is_pill(item_name, text(ident, "form_code_name"), text(permit, "efficacy")),
                 sale_status(item_name, text(permit, "status")),
             ))
+            dur_rows.extend(dur_rows_of(item_seq, pill.get("dur") or {}))
             # 보험코드(EDI) : 같은 약에 여러 개일 수 있고 중복이 있을 수 있다
             for code in pill.get("edi_codes") or []:
                 code = edi_code(code)
                 if code:
                     code_rows.append(("EDI", code, item_seq))
-    return catalog_rows, code_rows
+    return catalog_rows, code_rows, dur_rows
+
+
+def dur_rows_of(item_seq, dur):
+    """
+    약 1개의 DUR 정보 → pill_catalog_dur 행들
+    원천 형식 : {"pregnancy": [{"금기등급", "상세정보"}], "age": [{"조건", "상세정보"}],
+                 "elderly": ["상세 문장", ...], "combination": [{"상대성분", "상세정보"}]}
+    (노인주의만 객체가 아니라 문자열 목록이다)
+    """
+    rows = []
+    for item in dur.get("pregnancy") or []:
+        rows.append((item_seq, "PREGNANCY", None, cut(text(item, "금기등급"), 10), None, cut(text(item, "상세정보"), 1000)))
+    for item in dur.get("age") or []:
+        rows.append((item_seq, "AGE", None, None, cut(text(item, "조건"), 20), cut(text(item, "상세정보"), 1000)))
+    for item in dur.get("elderly") or []:
+        detail = item.strip() if isinstance(item, str) else text(item, "상세정보")
+        rows.append((item_seq, "ELDERLY", None, None, None, cut(detail or None, 1000)))
+    for item in dur.get("combination") or []:
+        rows.append((item_seq, "COMBINATION", cut(text(item, "상대성분"), 200), None, None,
+                     cut(text(item, "상세정보"), 1000)))
+    return rows
 
 
 def edi_code(value):
@@ -282,7 +305,7 @@ def main():
     parser.add_argument("--out", required=True, help="출력 파일 (.sql.gz)")
     args = parser.parse_args()
 
-    catalog_rows, code_rows = read_catalog(os.path.expanduser(args.catalog))
+    catalog_rows, code_rows, dur_rows = read_catalog(os.path.expanduser(args.catalog))
     if args.standard_code:
         code_rows += read_standard_codes(os.path.expanduser(args.standard_code), {r[0] for r in catalog_rows})
     # (코드 종류, 코드, 약) 이 같은 행은 하나만 (테이블의 UNIQUE 키와 같은 기준)
@@ -304,6 +327,8 @@ def main():
                        "line_front", "line_back", "form_code_name", "chart", "leng_long", "leng_short", "thick",
                        "image_url", "is_pill", "sale_status"], catalog_rows)
         write_inserts(out, "alyak_pill.pill_catalog_code", ["code_type", "code", "item_seq"], code_rows)
+        write_inserts(out, "alyak_pill.pill_catalog_dur",
+                      ["item_seq", "dur_type", "partner_ingredient", "grade", "age_condition", "detail"], dur_rows)
         write_inserts(out, "alyak_pill.dur_ingredient", ["edi_code", "ingredient_code", "ingredient_name"], edi_rows)
         write_inserts(out, "alyak_pill.dur_combination",
                       ["ingredient_code_a", "ingredient_code_b", "detail"], pair_rows)
@@ -311,6 +336,7 @@ def main():
 
     print("pill_catalog      {:>7,} 행 (알약 {:,})".format(len(catalog_rows), sum(1 for r in catalog_rows if r[20])))
     print("pill_catalog_code {:>7,} 행".format(len(code_rows)))
+    print("pill_catalog_dur  {:>7,} 행".format(len(dur_rows)))
     print("dur_ingredient    {:>7,} 행".format(len(edi_rows)))
     print("dur_combination   {:>7,} 행".format(len(pair_rows)))
     print("출력 : {} ({:.1f} MB)".format(args.out, os.path.getsize(args.out) / 1024 / 1024))
