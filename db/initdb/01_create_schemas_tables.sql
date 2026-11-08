@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS alyak_pill.pill_catalog (
   image_url            VARCHAR(255)      NULL COMMENT '낱알 이미지 원본 주소 (식약처)',
   is_pill              TINYINT(1)    NOT NULL DEFAULT 0 COMMENT '먹는 알약(정제·캡슐) 여부',
   sale_status          VARCHAR(20)   NOT NULL DEFAULT 'UNKNOWN' COMMENT '판매 상태 (NORMAL, EXPIRED ...)',
+  atc_code             VARCHAR(10)       NULL COMMENT 'WHO ATC 약효 분류 코드 (예: N02BE01). 앞 5자리가 같으면 같은 효능군',
   PRIMARY KEY (item_seq),
   KEY idx_pill_catalog_name_normalized (item_name_normalized(100))
 ) ENGINE = InnoDB COMMENT = '약 카탈로그';
@@ -107,6 +108,19 @@ CREATE TABLE IF NOT EXISTS alyak_pill.pill_catalog_dur (
   PRIMARY KEY (id),
   KEY idx_pill_catalog_dur_item (item_seq, dur_type)
 ) ENGINE = InnoDB COMMENT = '약별 DUR 주의 정보';
+
+-- 약의 원료 성분 (약 1개에 여러 행, 복합제는 성분마다 1행) : "같은 성분 중복 복용" 검사용
+--  - 카탈로그 원천 허가정보의 주성분 "[M040353]아세트아미노펜|[M223183]카페인무수물 ..." 을 성분별로 나눈다.
+--  - 같은 성분이 원료 형태에 따라 다른 코드(아세트아미노펜 / 아세트아미노펜제피세립 ...)로 들어 있어서,
+--    원료 형태 표기를 뗀 이름(ingredient_key)으로 비교한다.
+CREATE TABLE IF NOT EXISTS alyak_pill.pill_catalog_ingredient (
+  item_seq        VARCHAR(20)  NOT NULL COMMENT '약 (pill_catalog.item_seq)',
+  ingredient_code VARCHAR(20)  NOT NULL COMMENT '원료 성분 코드 (예: M040353)',
+  ingredient_name VARCHAR(300) NOT NULL COMMENT '성분명 (예: 아세트아미노펜)',
+  ingredient_key  VARCHAR(300) NOT NULL COMMENT '비교용 성분명 (공백·괄호·원료 형태 표기 제거)',
+  PRIMARY KEY (item_seq, ingredient_code),
+  KEY idx_pill_catalog_ingredient_key (ingredient_key(100))
+) ENGINE = InnoDB COMMENT = '약의 원료 성분';
 
 -- DUR 병용금기 검사용 (1/3) : 약 → 성분코드
 --  - "내 약통"에 담긴 약끼리 함께 먹으면 안 되는 조합이 있는지 검사할 때 사용한다.

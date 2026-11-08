@@ -16,6 +16,7 @@
 #  alyak_pill.pill_catalog      : 약 1개 = 1행. 웹 화면에 필요한 컬럼만 추린다
 #  alyak_pill.pill_catalog_code : 보험코드(EDI) → 약. 처방내역의 약품코드로 약을 찾을 때 사용
 #  alyak_pill.pill_catalog_dur  : 약별 DUR 주의 정보 (임부금기·연령금기·노인주의·병용금기, 약 상세 화면용)
+#  alyak_pill.pill_catalog_ingredient : 약의 원료 성분 (복합제는 성분마다 1행, "같은 성분 중복 복용" 검사용)
 #  alyak_pill.pill_ingredient   : 약 → 성분코드 (병용금기 검사용. 보험코드로 찾은 성분 + 표준코드의 일반명코드)
 #  alyak_pill.dur_ingredient    : 보험코드 → 성분코드 (카탈로그와 연결되지 않은 처방약의 병용금기 검사용)
 #  alyak_pill.dur_combination   : 함께 먹으면 안 되는 성분 쌍 (제품 쌍 87만 행 → 성분·투여경로 쌍 약 3천 8백 행)
@@ -150,6 +151,30 @@ def dimension(value):
 
 INGREDIENT = re.compile(r"\[(M\d+)\]([^|]+)")
 
+# 같은 성분인데 원료 형태만 다른 이름 (아세트아미노펜제피세립, 아세트아미노펜(미분화) ...) 의 꼬리 표기
+INGREDIENT_FORM_SUFFIX = re.compile(r"(제피세립|제피과립|과립|세립|미분화|미립자|건조분말|코팅)$")
+
+
+def ingredient_key(name):
+    """비교용 성분명 : 괄호·공백을 지우고 원료 형태 꼬리 표기를 뗀다. 예) 아세트아미노펜 제피세립 → 아세트아미노펜"""
+    key = re.sub(r"\([^)]*\)|\s+", "", name or "")
+    previous = None
+    while key != previous:
+        previous = key
+        key = INGREDIENT_FORM_SUFFIX.sub("", key)
+    return key
+
+
+def main_ingredient_rows(item_seq, main_ingredient):
+    """주성분 "[M040353]아세트아미노펜|..." → (약, 원료 코드, 성분명, 비교용 성분명) 행들"""
+    rows = {}
+    for match in INGREDIENT.finditer(main_ingredient or ""):
+        name = cut(match.group(2).strip(), 300)
+        key = cut(ingredient_key(name), 300)
+        if name and key:
+            rows.setdefault(match.group(1), (item_seq, match.group(1), name, key))
+    return list(rows.values())
+
 
 def readable_ingredients(main_ingredient):
     """"[M040702]포도당|[M040426]염화나트륨" → "포도당, 염화나트륨" (화면 표시용)"""
@@ -191,7 +216,7 @@ def write_inserts(out, table, columns, rows):
 # ---------------------------------------------------------------------
 def read_catalog(path):
     """catalog.jsonl → pill_catalog 행, pill_catalog_code 행"""
-    catalog_rows, code_rows, dur_rows = [], [], []
+    catalog_rows, code_rows, dur_rows, main_rows = [], [], [], []
     with open(path, encoding="utf-8") as file:
         for line in file:
             if not line.strip():
@@ -227,14 +252,16 @@ def read_catalog(path):
                 cut(text(ident, "image_url") or text(description, "image_url"), 255),
                 is_pill(item_name, text(ident, "form_code_name"), text(permit, "efficacy")),
                 sale_status(item_name, text(permit, "status")),
+                cut(text(permit, "atc_code"), 10),
             ))
+            main_rows.extend(main_ingredient_rows(item_seq, text(permit, "main_ingredient")))
             dur_rows.extend(dur_rows_of(item_seq, pill.get("dur") or {}))
             # 보험코드(EDI) : 같은 약에 여러 개일 수 있고 중복이 있을 수 있다
             for code in pill.get("edi_codes") or []:
                 code = edi_code(code)
                 if code:
                     code_rows.append(("EDI", code, item_seq))
-    return catalog_rows, code_rows, dur_rows
+    return catalog_rows, code_rows, dur_rows, main_rows
 
 
 def dur_rows_of(item_seq, dur):
@@ -351,7 +378,7 @@ def main():
     parser.add_argument("--out", required=True, help="출력 파일 (.sql.gz)")
     args = parser.parse_args()
 
-    catalog_rows, code_rows, dur_rows = read_catalog(os.path.expanduser(args.catalog))
+    catalog_rows, code_rows, dur_rows, main_rows = read_catalog(os.path.expanduser(args.catalog))
     if args.standard_code:
         code_rows += read_standard_codes(os.path.expanduser(args.standard_code), {r[0] for r in catalog_rows})
     # (코드 종류, 코드, 약) 이 같은 행은 하나만 (테이블의 UNIQUE 키와 같은 기준)
@@ -374,10 +401,12 @@ def main():
                       ["item_seq", "item_name", "item_name_normalized", "entp_name", "etc_otc", "class_name",
                        "main_ingredient", "drug_shape", "color1", "color2", "print_front", "print_back",
                        "line_front", "line_back", "form_code_name", "chart", "leng_long", "leng_short", "thick",
-                       "image_url", "is_pill", "sale_status"], catalog_rows)
+                       "image_url", "is_pill", "sale_status", "atc_code"], catalog_rows)
         write_inserts(out, "alyak_pill.pill_catalog_code", ["code_type", "code", "item_seq"], code_rows)
         write_inserts(out, "alyak_pill.pill_catalog_dur",
                       ["item_seq", "dur_type", "partner_ingredient", "grade", "age_condition", "detail"], dur_rows)
+        write_inserts(out, "alyak_pill.pill_catalog_ingredient",
+                      ["item_seq", "ingredient_code", "ingredient_name", "ingredient_key"], main_rows)
         write_inserts(out, "alyak_pill.pill_ingredient", ["item_seq", "ingredient_code"], ingredient_rows)
         write_inserts(out, "alyak_pill.dur_ingredient", ["edi_code", "ingredient_code", "ingredient_name"], edi_rows)
         write_inserts(out, "alyak_pill.dur_combination",
@@ -388,6 +417,8 @@ def main():
     print("pill_catalog      {:>7,} 행 (알약 {:,})".format(len(catalog_rows), sum(1 for r in catalog_rows if r[20])))
     print("pill_catalog_code {:>7,} 행".format(len(code_rows)))
     print("pill_catalog_dur  {:>7,} 행".format(len(dur_rows)))
+    print("pill_catalog_ingredient {:>7,} 행 (ATC 있는 약 {:,})".format(len(main_rows),
+                                                                 sum(1 for r in catalog_rows if r[22])))
     print("pill_ingredient   {:>7,} 행 (약 {:,}개)".format(len(ingredient_rows), len({r[0] for r in ingredient_rows})))
     print("dur_ingredient    {:>7,} 행".format(len(edi_rows)))
     print("dur_combination   {:>7,} 행".format(len(pair_rows)))
