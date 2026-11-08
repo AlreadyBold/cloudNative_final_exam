@@ -148,6 +148,11 @@ input, select {
 .item .title { font-weight: 600; word-break: break-all; }
 .item .meta { color: var(--muted); font-size: 0.85rem; }
 .item .actions { display: flex; flex-direction: column; gap: 6px; }
+/* DUR 주의 정보 (약 상세 안) */
+.dur { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.dur-list, .dur-sub { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.dur-sub { margin-left: 12px; font-size: 0.85rem; }
+.dur-none { color: var(--muted); margin: 4px 0 0; }
 .detail { margin-top: 8px; font-size: 0.85rem; background: #fafbfc; border-radius: 8px; padding: 8px 10px; }
 .empty-text { color: var(--muted); text-align: center; padding: 20px 0; }
 

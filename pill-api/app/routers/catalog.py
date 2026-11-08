@@ -1,7 +1,7 @@
 """
 약 카탈로그 API (로그인 없이 사용 가능)
   GET  /api/pill/catalog/search?q=타이레놀&page=1&size=20 : 약 이름 검색
-  GET  /api/pill/catalog/{item_seq}                      : 약 상세
+  GET  /api/pill/catalog/{item_seq}                      : 약 상세 (DUR 주의 정보 포함)
 """
 from fastapi import APIRouter, Query
 from sqlalchemy import text
@@ -89,7 +89,11 @@ def search(q: str = Query(..., min_length=1, max_length=100, description="약 �
 
 @router.get("/{item_seq}")
 def detail(item_seq: str):
-    """약 상세 : 기본 정보 + 낱알 모양(각인, 크기) + 성분 + 보험코드 목록"""
+    """
+    약 상세 : 기본 정보 + 성분 + 보험코드 목록 + DUR 주의 정보
+    dur 형식 : {"pregnancy": [...], "age": [...], "elderly": [...], "combination": [...]}
+               (해당 주의 사항이 없으면 빈 목록)
+    """
     with engine.connect() as conn:
         row = conn.execute(text(f"""
             SELECT {SUMMARY_COLUMNS}, p.main_ingredient, p.chart,
@@ -102,6 +106,17 @@ def detail(item_seq: str):
         codes = conn.execute(text(
             "SELECT code FROM pill_catalog_code WHERE item_seq = :item_seq AND code_type = 'EDI' ORDER BY code"
         ), {"item_seq": item_seq}).scalars().all()
+        dur_rows = conn.execute(text("""
+            SELECT dur_type, partner_ingredient, grade, age_condition, detail
+            FROM pill_catalog_dur WHERE item_seq = :item_seq
+            ORDER BY id
+        """), {"item_seq": item_seq}).all()
     data = dict(row._mapping)
     data["edi_codes"] = codes
+    # DUR 종류별로 묶는다 (화면에서 임부금기 → 연령금기 → 노인주의 → 병용금기 순으로 보여 준다)
+    data["dur"] = {"pregnancy": [], "age": [], "elderly": [], "combination": []}
+    for dur in dur_rows:
+        data["dur"][dur.dur_type.lower()].append({
+            "partner_ingredient": dur.partner_ingredient, "grade": dur.grade,
+            "age_condition": dur.age_condition, "detail": dur.detail})
     return ok(data)
