@@ -208,13 +208,14 @@ function periodText(item) {
 }
 
 /**
- * 복용법 한 줄 : "하루 3번 · 1번에 1개씩 · 7일분" (처방에서 담은 약만 값이 있다)
- * CODEF(심평원) 조제 내역의 1일 투여횟수, 1회 투약량, 총 투약일수를 그대로 보여 준다.
+ * 약효·복용법 한 줄 : "해열·진통·소염제 · 하루 3번 · 1번에 1개씩 · 7일분" (처방에서 담은 약만 값이 있다)
+ * CODEF(심평원) 조제 내역의 약효, 1일 투여횟수, 1회 투약량, 총 투약일수를 그대로 보여 준다.
  * 1회 투약량이 숫자면 "개씩"을 붙이고, 숫자가 아니면(예: 0.5정, 10mL) 받은 값 그대로 쓴다.
  */
 function dosageLine(item) {
   const isNumber = (value) => /^\d+(\.\d+)?$/.test(String(value || '').trim());
   const parts = [
+    item.effect,
     item.daily_doses && `하루 ${item.daily_doses}번`,
     item.one_dose && `1번에 ${item.one_dose}${isNumber(item.one_dose) ? '개' : ''}씩`,
     item.total_dosing_days && `${item.total_dosing_days}일분`,
