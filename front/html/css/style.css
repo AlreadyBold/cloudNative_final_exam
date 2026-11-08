@@ -15,6 +15,7 @@
   --ok: #1f9d55;          /* 성공 */
   --warn-bg: #fff4e5;     /* 주의 배경 */
   --radius: 10px;
+  --topbar-h: 56px;      /* 상단 바 높이 (탭 메뉴가 이 아래에 고정된다) */
 }
 
 * { box-sizing: border-box; }
@@ -34,6 +35,7 @@ body {
 
 /* ----- 상단 바 ----- */
 .topbar {
+  height: var(--topbar-h);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -61,7 +63,12 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .hint { color: var(--muted); font-size: 0.9rem; margin-top: 0; }
 
 /* ----- 탭 ----- */
-.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+/* 탭 메뉴 : 스크롤해도 상단 바 바로 아래에 고정 (position: sticky) */
+.tabs {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+  position: sticky; top: var(--topbar-h); z-index: 9;
+  background: var(--bg); padding: 8px 0;
+}
 .tab {
   border: 1px solid var(--line);
   background: var(--card);
