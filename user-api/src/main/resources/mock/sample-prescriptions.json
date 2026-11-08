@@ -1,9 +1,32 @@
 [
   {
-    "dispensed_date": "2026-10-30",
     "pharmacy": "알약온누리약국",
-    "prescriber": "가천피부과의원",
+    "prescriber": "가천내과의원",
     "drugs": [
+      {
+        "drug_code": "672300240",
+        "name": "타이레놀8시간이알서방정(아세트아미노펜)",
+        "ingredients": "아세트아미노펜",
+        "content": "650mg",
+        "one_dose": "1",
+        "daily_doses": "2",
+        "total_dosing_days": "3",
+        "effect": "해열.진통.소염제",
+        "atc_code": "N02BE01",
+        "formula": "흰색의 타원형 서방정"
+      },
+      {
+        "drug_code": "654100110",
+        "name": "지르텍정(세티리진염산염)",
+        "ingredients": "세티리진염산염",
+        "content": "10mg",
+        "one_dose": "1",
+        "daily_doses": "1",
+        "total_dosing_days": "5",
+        "effect": "항히스타민제",
+        "atc_code": "R06AE07",
+        "formula": "흰색의 장방형 필름코팅정"
+      },
       {
         "drug_code": "646902560",
         "name": "스포라녹스캡슐(이트라코나졸)",
@@ -17,24 +40,17 @@
         "formula": "파란색의 장방형 경질캡슐"
       },
       {
-        "drug_code": "654100110",
-        "name": "지르텍정(세티리진염산염)",
-        "ingredients": "세티리진염산염",
-        "content": "10mg",
+        "drug_code": "649900060",
+        "name": "무코스타정(레바미피드)",
+        "ingredients": "레바미피드",
+        "content": "100mg",
         "one_dose": "1",
-        "daily_doses": "1",
-        "total_dosing_days": "7",
-        "effect": "항히스타민제",
-        "atc_code": "R06AE07",
-        "formula": "흰색의 장방형 필름코팅정"
-      }
-    ]
-  },
-  {
-    "dispensed_date": "2026-10-28",
-    "pharmacy": "알약온누리약국",
-    "prescriber": "가천내과의원",
-    "drugs": [
+        "daily_doses": "3",
+        "total_dosing_days": "10",
+        "effect": "소화성궤양용제",
+        "atc_code": "A02BX14",
+        "formula": "흰색의 원형 필름코팅정"
+      },
       {
         "drug_code": "073400340",
         "name": "리피토정10밀리그램(아토르바스타틴칼슘삼수화물)",
@@ -46,49 +62,6 @@
         "effect": "동맥경화용제",
         "atc_code": "C10AA05",
         "formula": "흰색의 원형 필름코팅정"
-      },
-      {
-        "drug_code": "649900060",
-        "name": "무코스타정(레바미피드)",
-        "ingredients": "레바미피드",
-        "content": "100mg",
-        "one_dose": "1",
-        "daily_doses": "3",
-        "total_dosing_days": "30",
-        "effect": "소화성궤양용제",
-        "atc_code": "A02BX14",
-        "formula": "흰색의 원형 필름코팅정"
-      }
-    ]
-  },
-  {
-    "dispensed_date": "2026-09-15",
-    "pharmacy": "성남중앙약국",
-    "prescriber": "성남정형외과의원",
-    "drugs": [
-      {
-        "drug_code": "672300240",
-        "name": "타이레놀8시간이알서방정(아세트아미노펜)",
-        "ingredients": "아세트아미노펜",
-        "content": "650mg",
-        "one_dose": "1",
-        "daily_doses": "2",
-        "total_dosing_days": "5",
-        "effect": "해열.진통.소염제",
-        "atc_code": "N02BE01",
-        "formula": "흰색의 타원형 서방정"
-      },
-      {
-        "drug_code": "641600030",
-        "name": "가스모틴정5밀리그램(모사프리드시트르산염수화물)",
-        "ingredients": "모사프리드시트르산염수화물",
-        "content": "5mg",
-        "one_dose": "1",
-        "daily_doses": "3",
-        "total_dosing_days": "5",
-        "effect": "기타의 소화기관용약",
-        "atc_code": "A03FA",
-        "formula": "흰색의 장방형 필름코팅정"
       }
     ]
   }
