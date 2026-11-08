@@ -89,21 +89,37 @@
     </section>
 
     <!-- [2] 내 약통 : /api/pill/pillbox -->
-    <section class="card tab-panel" id="tab-pillbox">
-      <h2>내 약통</h2>
-      <p class="hint">먹는 약과 복용 기간을 모아 둡니다. 오늘 날짜로 복용 예정 · 복용 중 · 복용 완료를 알려 줘요.</p>
-      <!-- 복용 캘린더 : 날짜마다 먹는 약 (js/calendar.js 가 그린다, 날짜를 누르면 그날 먹는 약 목록) -->
-      <div class="calendar" id="pillbox-calendar"></div>
-      <!-- 병용금기 검사 결과 (GET /api/pill/pillbox/interactions, js/pillbox.js 가 채운다) -->
-      <div id="dur-alert" hidden></div>
-      <!-- 상태별로 골라 보기 (화면에서만 거른다) -->
-      <div class="filters" id="pillbox-filters">
-        <button type="button" class="chip active" data-status="ALL">전체</button>
-        <button type="button" class="chip" data-status="TAKING">복용 중</button>
-        <button type="button" class="chip" data-status="UPCOMING">복용 예정</button>
-        <button type="button" class="chip" data-status="DONE">복용 완료</button>
+    <!--   화면을 카드 2개로 나눈다 : ① 복용 캘린더(그날 먹는 약·주의 사항 포함) ② 약 목록 -->
+    <section class="tab-panel" id="tab-pillbox">
+      <div class="page-head">
+        <h2>내 약통</h2>
+        <p class="hint">먹는 약과 복용 기간을 모아 둡니다. 오늘 날짜로 복용 예정 · 복용 중 · 복용 완료를 알려 줘요.</p>
       </div>
-      <ul class="list" id="pillbox-list"></ul>
+
+      <!-- ① 복용 캘린더 : 날짜마다 먹는 약 (js/calendar.js), 고른 날짜의 함께 먹는 약 검사 결과 (js/pillbox.js) -->
+      <div class="card section">
+        <div class="section-head">
+          <h3>📅 복용 캘린더</h3>
+          <span class="hint">날짜를 누르면 그날 먹는 약과 주의 사항을 보여 줘요</span>
+        </div>
+        <div class="calendar" id="pillbox-calendar"></div>
+        <!-- 병용금기 · 같은 성분 · 같은 효능 (GET /api/pill/pillbox/interactions, 고른 날짜에 해당할 때만) -->
+        <div class="dur-area" id="dur-alert" hidden></div>
+      </div>
+
+      <!-- ② 약 목록 : 상태별로 골라 보기 (화면에서만 거른다) -->
+      <div class="card section">
+        <div class="section-head">
+          <h3>💊 약 목록</h3>
+          <div class="filters" id="pillbox-filters">
+            <button type="button" class="chip active" data-status="ALL">전체</button>
+            <button type="button" class="chip" data-status="TAKING">복용 중</button>
+            <button type="button" class="chip" data-status="UPCOMING">복용 예정</button>
+            <button type="button" class="chip" data-status="DONE">복용 완료</button>
+          </div>
+        </div>
+        <ul class="list" id="pillbox-list"></ul>
+      </div>
     </section>
 
     <!-- [3] 처방내역 불러오기 : user-api 로 간편인증 → 결과를 pill-api 에 저장 -->

@@ -93,6 +93,21 @@ h3 { margin: 16px 0 8px; font-size: 1rem; }
 .modal .form { margin: 0; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; }
 .modal-head h2 { margin: 0; }
+/* ----- 화면 안의 구역 (카드) : 제목 줄 + 구분선, 카드 사이 간격 ----- */
+.page-head { margin: 4px 2px 12px; }
+.page-head h2 { margin: 0 0 4px; }
+.page-head .hint { margin: 0; }
+.section { margin-bottom: 20px; }
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.section-head h3 { margin: 0; font-size: 1.05rem; }
+.section-head .hint { margin: 0; }
+.section-head .filters { margin: 0; }
+/* 캘린더 카드 안 : 달력 / 그날 먹는 약 / 주의 사항 을 얇은 선으로 구분 */
+.cal-detail { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 4px; }
+.dur-area { border-top: 1px dashed var(--line); margin-top: 14px; padding-top: 12px; }
+.dur-area .dur-alert:last-child { margin-bottom: 0; }
+
 /* ----- 복용 캘린더 (내 약통 맨 위) ----- */
 /* 가로·세로 모두 기존보다 20% 작게 : 폭 80% 가운데, 칸·띠 높이 80% */
 .calendar { width: 80%; margin: 8px auto 16px; }
