@@ -24,6 +24,7 @@ public enum ErrorCode {
 
 	// ----- 로그인 / 회원가입 -----
 	AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."),
+	AUTH_SESSION_REPLACED(HttpStatus.UNAUTHORIZED, "다른 기기에서 로그인되어 로그아웃되었습니다."),
 	AUTH_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
 
 	// ----- 회원 (마이페이지) -----

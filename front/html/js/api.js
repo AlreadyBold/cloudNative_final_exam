@@ -32,7 +32,7 @@ export function setLogListener(listener) {
   onLogChange = listener;
 }
 
-/** 로그인이 풀렸을 때(401) 부를 함수 (main.js 가 등록 → 로그인 화면으로 이동) */
+/** 로그인이 풀렸을 때(401) 부를 함수 (main.js 가 등록 → 로그인 화면으로 이동, 서버가 준 이유를 함께 전달) */
 let onUnauthorized = () => {};
 export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler;
@@ -82,7 +82,7 @@ export async function request(method, path, body) {
     const message = json?.error?.message || `요청을 처리하지 못했습니다. (${response.status})`;
     // 로그인이 필요한 API 에서 401 이면 세션이 끝난 것 → 로그인 화면으로
     if (response.status === 401 && !path.endsWith('/login')) {
-      onUnauthorized();
+      onUnauthorized(message); // 예: "다른 기기에서 로그인되어 로그아웃되었습니다."
     }
     throw new ApiError(response.status, code, message);
   }

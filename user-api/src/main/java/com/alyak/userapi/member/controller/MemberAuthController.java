@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.alyak.userapi.global.response.ApiResponse;
+import com.alyak.userapi.global.session.LoginSessionRegistry;
 import com.alyak.userapi.global.session.LoginUser;
 import com.alyak.userapi.global.session.SessionAttributeNames;
 import com.alyak.userapi.global.web.ServerIdentity;
@@ -37,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 public class MemberAuthController {
 
 	private final MemberAuthService memberAuthService;
+	private final LoginSessionRegistry loginSessionRegistry;
 
 	/**
 	 * 회원가입. 가입만 하고 로그인은 하지 않는다. (프론트가 가입 후 로그인 화면으로 이동)
@@ -68,12 +70,15 @@ public class MemberAuthController {
 		session.setAttribute(SessionAttributeNames.NICKNAME, member.getNickname());
 		session.setAttribute(SessionAttributeNames.ROLE, member.getRole().name());
 
+		// 중복 로그인 방지 : 이 계정으로 다른 기기에서 로그인돼 있던 세션을 끊는다 (나중 로그인 우선)
+		loginSessionRegistry.register(member.getId(), session.getId());
+
 		return ApiResponse.ok(
 			new LoginUser(member.getId(), member.getEmail(), member.getNickname(), member.getRole().name()));
 	}
 
 	/**
-	 * 로그아웃 : 세션을 무효화한다. Spring Session 이 Redis 의 세션 키를 삭제하므로
+	 * 로그아웃 : 세션을 무효화하고 계정의 로그인 기록도 지운다. Spring Session 이 Redis 의 세션 키를 삭제하므로
 	 * user-api 2대와 pill-api 모두에서 동시에 로그아웃된다.
 	 * 이미 로그아웃된 상태에서 호출해도 성공으로 응답한다.
 	 */
@@ -81,6 +86,10 @@ public class MemberAuthController {
 	public ApiResponse<Void> logout(HttpServletRequest httpRequest) {
 		HttpSession session = httpRequest.getSession(false);
 		if (session != null) {
+			LoginUser loginUser = LoginUser.from(session);
+			if (loginUser != null) {
+				loginSessionRegistry.unregister(loginUser.userId(), session.getId());
+			}
 			session.invalidate();
 		}
 		return ApiResponse.ok();

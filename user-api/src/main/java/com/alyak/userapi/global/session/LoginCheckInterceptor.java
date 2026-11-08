@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class LoginCheckInterceptor implements HandlerInterceptor {
 
 	private final ObjectMapper objectMapper;
+	private final LoginSessionRegistry loginSessionRegistry;
 
 	/**
 	 * 컨트롤러 실행 "전"에 호출된다. true 면 계속 진행, false 면 여기서 응답을 끝낸다.
@@ -39,7 +40,10 @@ public class LoginCheckInterceptor implements HandlerInterceptor {
 		}
 
 		// 로그인하지 않았으면 401 + 공통 응답 형식으로 거절
-		ErrorCode errorCode = ErrorCode.COMMON_UNAUTHORIZED;
+		// 쿠키의 세션이 "다른 기기 로그인으로 끊긴 세션"이면 그 이유를 알려 준다 (중복 로그인 방지)
+		ErrorCode errorCode = loginSessionRegistry.wasReplaced(request.getRequestedSessionId())
+			? ErrorCode.AUTH_SESSION_REPLACED
+			: ErrorCode.COMMON_UNAUTHORIZED;
 		response.setStatus(errorCode.getStatus().value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		response.setCharacterEncoding("UTF-8");

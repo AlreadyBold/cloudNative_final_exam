@@ -66,11 +66,12 @@ async function start() {
   });
 
   // 어느 API 든 401(로그인 필요)이 오면 세션이 끝난 것이므로 로그인 화면으로
-  setUnauthorizedHandler(() => {
+  // (다른 기기에서 같은 계정으로 로그인하면 "다른 기기에서 로그인되어 로그아웃되었습니다." 가 온다)
+  setUnauthorizedHandler((message) => {
     if (!$('app-view').hidden) {
       session.user = null;
       showAuth();
-      toast('로그인이 필요합니다.', true);
+      toast(message || '로그인이 필요합니다.', true);
     }
   });
 

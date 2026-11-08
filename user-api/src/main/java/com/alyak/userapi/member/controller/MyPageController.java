@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.alyak.userapi.global.response.ApiResponse;
+import com.alyak.userapi.global.session.LoginSessionRegistry;
 import com.alyak.userapi.global.session.LoginUser;
 import com.alyak.userapi.global.session.SessionAttributeNames;
 import com.alyak.userapi.global.web.ServerIdentity;
@@ -35,6 +36,7 @@ public class MyPageController {
 	private static final int SESSION_ID_PREFIX_LENGTH = 8;
 
 	private final MyPageService myPageService;
+	private final LoginSessionRegistry loginSessionRegistry;
 
 	/**
 	 * 내 정보 + 세션 확인 정보.
@@ -78,6 +80,7 @@ public class MyPageController {
 	public ApiResponse<Void> withdraw(LoginUser loginUser, HttpSession session,
 		@Valid @RequestBody WithdrawRequest request) {
 		myPageService.withdraw(loginUser.userId(), request.password());
+		loginSessionRegistry.unregister(loginUser.userId(), session.getId());
 		session.invalidate();
 		return ApiResponse.ok();
 	}
