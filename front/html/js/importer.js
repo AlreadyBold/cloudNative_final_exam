@@ -206,8 +206,8 @@ function renderDrug(d) {
       detailBox),
     d.itemSeq ? el('div', { class: 'actions' },
       el('button', {
-        type: 'button', class: 'btn small',
-        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(d.itemSeq, detailBox)),
+        type: 'button', class: 'btn small detail-toggle',
+        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(d.itemSeq, detailBox, event.currentTarget)),
       }, '상세')) : null);
 }
 

@@ -15,12 +15,15 @@ const COMBINATION_PREVIEW = 5;
 
 /**
  * [상세] 버튼 동작 : 처음 누를 때만 서버에서 가져오고, 다시 누르면 접는다
+ * 펼치면 버튼 글자가 [간단히], 접으면 다시 [상세]로 바뀐다
  * @param {string} itemSeq 카탈로그 약 ID
  * @param {HTMLElement} box 상세 내용을 넣을 영역 (처음에는 hidden)
+ * @param {HTMLElement} [button] 누른 버튼 (글자를 바꿀 대상)
  */
-export async function toggleDetail(itemSeq, box) {
+export async function toggleDetail(itemSeq, box, button) {
   if (!box.hidden) {
     box.hidden = true;
+    if (button) button.textContent = '상세';
     return;
   }
   if (!box.dataset.loaded) {
@@ -34,6 +37,7 @@ export async function toggleDetail(itemSeq, box) {
     }
   }
   box.hidden = false;
+  if (button) button.textContent = '간단히';
 }
 
 /** 상세 내용 : 성분·성상 + DUR 주의 정보 */

@@ -66,8 +66,8 @@ function renderPill(pill) {
         onclick: () => openAddDialog({ item_seq: pill.item_seq, drug_name: pill.item_name, source: 'SEARCH' }),
       }, '약통에 담기'),
       el('button', {
-        type: 'button', class: 'btn small',
-        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(pill.item_seq, detailBox)),
+        type: 'button', class: 'btn small detail-toggle',
+        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(pill.item_seq, detailBox, event.currentTarget)),
       }, '상세')));
   return item;
 }

@@ -266,8 +266,8 @@ function renderItem(item) {
       }, '수정'),
       // 카탈로그와 연결된 약만 상세 정보(성분·성상·DUR)가 있다
       item.item_seq ? el('button', {
-        type: 'button', class: 'btn small',
-        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(item.item_seq, detailBox)),
+        type: 'button', class: 'btn small detail-toggle',
+        onclick: (event) => withBusy(event.currentTarget, () => toggleDetail(item.item_seq, detailBox, event.currentTarget)),
       }, '상세') : null,
       el('button', {
         type: 'button', class: 'btn small danger',

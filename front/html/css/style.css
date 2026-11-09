@@ -215,6 +215,9 @@ input, select {
 .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn.ghost { background: transparent; }
 .btn.small { padding: 4px 10px; font-size: 0.85rem; }
+/* [상세] ↔ [간단히] 버튼 : 처음부터 긴 글자(간단히 = 3글자) 너비로 잡아서 눌러도 크기가 바뀌지 않게 한다
+   (한글 1글자 ≈ 1em, 22px = 좌우 여백 10px×2 + 테두리 1px×2) */
+.btn.detail-toggle { min-width: calc(3em + 22px); text-align: center; }
 .btn.link { border: none; background: none; color: var(--primary); padding: 0 4px; text-decoration: underline; }
 
 /* ----- 목록 (검색 결과, 약통, 처방) ----- */
