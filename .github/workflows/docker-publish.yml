@@ -1,10 +1,9 @@
 # =====================================================================
-# docker-publish.yml : 이미지 5개를 amd64 + arm64 두 가지로 빌드해서 Docker Hub 에 올린다
+# docker-publish.yml : 이미지 5개를 amd64(x86) 용으로 빌드해서 Docker Hub 에 올린다
 #
-# - 개발 VM(arm64)에서 직접 빌드하면 amd64 이미지는 에뮬레이션이라 느리고 디스크도 부족해서,
-#   GitHub 이 제공하는 빌드 머신에서 빌드한다. (로컬 빌드 명령은 scripts/02_build.sh 와 같다)
-# - 한 태그(junheong/alyak-xxx:1.0) 안에 두 아키텍처가 함께 들어가므로(멀티 아키텍처 매니페스트)
-#   docker pull 하는 컴퓨터가 맥(M칩)이든 일반 PC·클라우드 서버(x86)든 자기에게 맞는 이미지를 받는다.
+# - 과제 조건 : "MAC은 amd64 cpu 빌드, arm cpu 빌드 하지 말것" (채점·실행 환경이 일반 PC / x86 서버)
+# - 개발 VM은 맥(M칩) 위의 arm64 라서, 직접 빌드하면 arm64 이미지가 되고 amd64 는 에뮬레이션이라 느리고 디스크도 부족하다.
+#   그래서 GitHub 이 제공하는 amd64 빌드 머신(ubuntu-24.04)에서 빌드한다. (빌드 명령은 scripts/02_build.sh 와 같다)
 # - 수동 실행만 한다 : GitHub 레포 → Actions → "Docker Hub 이미지 올리기" → Run workflow
 #
 # 미리 필요한 것 (레포 Settings → Secrets and variables → Actions)
@@ -48,29 +47,27 @@ jobs:
       - name: 소스 받기
         uses: actions/checkout@v4
 
-      # 2) QEMU : x86 빌드 머신에서 arm64 명령을 실행할 수 있게 하는 에뮬레이터
-      #    (user-api 는 Dockerfile 에서 빌드 단계를 빌드 머신 아키텍처로 고정해서 Gradle 빌드는 에뮬레이션 없이 돈다)
-      - name: QEMU 준비
-        uses: docker/setup-qemu-action@v3
-
-      # 3) Buildx : 여러 아키텍처를 한 번에 빌드하는 docker build 확장
+      # 2) Buildx : 플랫폼(--platform)을 지정해서 빌드하고 바로 올릴 수 있는 docker build 확장
       - name: Buildx 준비
         uses: docker/setup-buildx-action@v3
 
-      # 4) Docker Hub 로그인 (비밀값은 레포 Secrets 에서만 읽고, 로그에는 가려져 나온다)
+      # 3) Docker Hub 로그인 (비밀값은 레포 Secrets 에서만 읽고, 로그에는 가려져 나온다)
       - name: Docker Hub 로그인
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 5) 빌드하고 바로 Docker Hub 에 올리기
-      #    = docker buildx build --platform linux/amd64,linux/arm64 -f <dockerfile> -t junheong/<name>:1.0 --push <context>
+      # 4) 빌드하고 바로 Docker Hub 에 올리기 (빌드 머신이 amd64 라서 에뮬레이션 없이 빌드된다)
+      #    = docker buildx build --platform linux/amd64 -f <dockerfile> -t junheong/<name>:1.0 --push <context>
       - name: ${{ matrix.name }} 빌드·올리기
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: junheong/${{ matrix.name }}:1.0
           push: true
+          # 빌드 출처 증명서(provenance)를 붙이지 않는다 : 붙이면 Docker Hub 에 "unknown/unknown" 항목이 함께 보여서
+          # amd64 이미지 하나만 올라간 것이 헷갈려 보인다
+          provenance: false
