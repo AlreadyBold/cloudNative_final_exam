@@ -84,14 +84,31 @@ docker pull redis:8.10.3
 
 ### Docker Hub에 올리기 (개발자가 실행)
 
-```bash
-docker login
-docker push junheong/alyak-mysql:1.0
-docker push junheong/alyak-user-api:1.0
-docker push junheong/alyak-pill-api:1.0
-docker push junheong/alyak-front:1.0
-docker push junheong/alyak-proxy:1.0
-```
+과제 조건에 따라 Docker Hub 이미지는 **amd64(x86)용**으로 올립니다 ("MAC은 amd64 cpu 빌드, arm cpu 빌드 하지 말것").
+개발 VM은 arm64(맥 M칩)라서 여기서 빌드하면 arm64 이미지가 되므로, Docker Hub에 올릴 이미지는
+**GitHub Actions**([`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml))의 amd64 빌드 머신에서 빌드해 올립니다.
+
+1. 레포 Secrets에 Docker Hub 로그인 정보 등록 (한 번만)
+   ```bash
+   gh secret set DOCKERHUB_USERNAME --body junheong
+   gh secret set DOCKERHUB_TOKEN        # Docker Hub 액세스 토큰(Read & Write) 붙여 넣기
+   ```
+2. 워크플로 실행 (GitHub 레포 → Actions → "Docker Hub 이미지 올리기" → Run workflow 와 같음)
+   ```bash
+   gh workflow run docker-publish.yml
+   ```
+   워크플로가 이미지마다 실행하는 명령은 아래와 같습니다 (위 `docker build`에 `--platform linux/amd64`와 `--push`를 더한 것).
+   ```bash
+   docker buildx build --platform linux/amd64 -f db/Dockerfile.mysql -t junheong/alyak-mysql:1.0 --push db
+   docker buildx build --platform linux/amd64 -f user-api/Dockerfile.user-api -t junheong/alyak-user-api:1.0 --push user-api
+   docker buildx build --platform linux/amd64 -f pill-api/Dockerfile.pill-api -t junheong/alyak-pill-api:1.0 --push pill-api
+   docker buildx build --platform linux/amd64 -f front/Dockerfile.front -t junheong/alyak-front:1.0 --push front
+   docker buildx build --platform linux/amd64 -f proxy/Dockerfile.proxy -t junheong/alyak-proxy:1.0 --push proxy
+   ```
+3. 올라간 이미지의 아키텍처 확인 (`linux/amd64`가 나오면 성공)
+   ```bash
+   docker buildx imagetools inspect junheong/alyak-user-api:1.0 --format '{{json .Image.Architecture}}'
+   ```
 
 ## 3. 컨테이너 실행
 
