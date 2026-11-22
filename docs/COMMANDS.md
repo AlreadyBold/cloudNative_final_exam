@@ -71,6 +71,29 @@ docker builder prune -f
 소스는 바인드 마운트가 아니라 **이미지 안에 복사**하므로, 이미지만 받아도 같은 프로그램이 실행됩니다.
 Redis는 공식 이미지 `redis:8.10.3`을 그대로 씁니다.
 
+### (개발자만) 약 카탈로그 초기화 SQL 만들기
+
+alyak-mysql 이미지에 들어가는 `db/initdb/03_insert_pill_catalog.sql.gz`(약 5MB)는 공공데이터 원본(약 1.3GB)을
+변환 도구로 줄여 만든 파일입니다. 이 파일은 이미 저장소에 있으므로 **설치할 때는 실행하지 않습니다.**
+원본 데이터를 바꿨을 때만, alyak-mysql 이미지를 빌드하기 전에 실행합니다. (파이썬 표준 라이브러리만 사용)
+
+```bash
+python3 tools/build_catalog_sql.py \
+    --catalog ~/alyak-data/raw/catalog.jsonl \
+    --dur-combination "~/alyak-data/raw/dur/의약품안전사용서비스(DUR)_병용금기 품목리스트 2026.6.csv" \
+    --standard-code ~/alyak-data/raw/standard-code.csv \
+    --out db/initdb/03_insert_pill_catalog.sql.gz
+```
+
+| 입력 | 내용 |
+|---|---|
+| `--catalog` | 식약처 의약품 허가·낱알식별 정보 (약 1개 = 1줄 JSON, 46,292건) |
+| `--dur-combination` | 심평원 DUR 병용금기 품목리스트 CSV (약 87만 행 → 성분 쌍 3,806개로 줄임) |
+| `--standard-code` | 심평원 약가마스터 의약품표준코드 CSV (바뀐 보험코드 연결) |
+
+초기화 스크립트는 DB 폴더(`~/alyak/mysql-data`)가 **비어 있을 때만** 실행되므로,
+새 SQL을 반영하려면 DB 폴더를 비우고 alyak-mysql을 다시 만들어야 합니다 (회원·약통 데이터도 지워짐).
+
 ### (빌드 대신) Docker Hub에서 받기
 
 ```bash
